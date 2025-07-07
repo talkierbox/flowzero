@@ -20,9 +20,8 @@ The project is designed to be my first exploration into reinforcement learning: 
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Quick Start](#quick-start)
-3. [Repository Layout](#repository-layout)
-4. [TODO](#todo)
-5. [Acknowledgements & References](#acknowledgements--references)
+3. [TODO](#todo)
+4. [Acknowledgements & References](#acknowledgements--references)
 
 ---
 
@@ -46,22 +45,6 @@ This _Expert-Iteration_ cycle yields continual policy improvement without extern
 # TODO
 ```
 
-## Repository Layout
-```bash
-flowzero_src/
-  env/                # FlowFreeEnv + level loaders
-  mcts/               # Minimal PUCT implementation
-  net/                # PyTorch ResNet policy-value model
-    train.py            # Expert-Iteration training loop
-  scripts/
-      benchmark.py    # DFS / PPO baselines
-      gif_recorder.py
-  tests/              # pytest suites
-  examples/
-      colab_demo.ipynb
-configs/
-  config.yaml
-```
 ## TODO
 - [ ] **GPU-batched MCTS** – integrate DeepMind `mctx` or `turbozero` for >10× speed-up.  
 - [ ] **Mobile export** – distil policy to ONNX / CoreML for on-device inference.  
@@ -82,3 +65,7 @@ Community PRs welcome 🚀
 FlowZero is **not** affiliated with Big Duck Games LLC (creators of _Flow Free_) or Google DeepMind. All trademarks are the property of their respective owners.
 
 ---
+
+**Extra Note:** I am aware that flow free can be solved through combinatorial optimization or SAT solvers, but I do enjoy this game, hence why I used it as an excuse to learn MCTS and RL.
+
+💧

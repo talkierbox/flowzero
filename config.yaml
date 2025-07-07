@@ -1,0 +1,25 @@
+# TODO: Ensure all this is correct and up-to-date
+mcts:
+  sims_per_move: 800
+  c_puct: 1.5
+  dirichlet_alpha: 0.30
+
+net:
+  channels: 64
+  res_blocks: 6
+  
+train:
+  batch_size: 512
+  lr: 1e-3
+  replay_size: 50000
+
+env:
+  level: "easy"
+  max_steps: 1000
+  num_levels: 1000
+  seed: 42
+  render: false
+  use_cache: true
+
+logging:
+  verbose: true
