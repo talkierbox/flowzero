@@ -80,6 +80,7 @@ extend-ignore = [
     "D401",  # first word should be imperative (annoying for ML “Returns”)
     "ANN101",  # don’t require type hints on `self`
     "ANN102",  # don’t require type hints on `cls`
+    "S101"
 ]
 
 [tool.ruff.isort]
