@@ -426,6 +426,9 @@ class FlowFree:
 
     def get_internal_board(self) -> np.ndarray:
         """Return the internal board representation."""
+        assert self.is_valid_board(self._board), (
+            "Internal board state is marked as invalid --- Something has gone wrong!"
+        )
         return self._board.copy()
 
     def board_str(self) -> str:

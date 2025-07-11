@@ -1,131 +1,172 @@
-"""Tests for the Flow Free game board specifically."""
+"""Pytest suite for the Flow Free board logic."""
+
+from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from flowzero_src.flowfree.game import EMPTY_CODE, Coordinate, FlowFree, body, head, terminal
+from flowzero_src.flowfree.game import (
+    EMPTY_CODE,
+    Coordinate,
+    FlowFree,
+    body,
+    head,
+    terminal,
+)
 
+# ────────────────────────────── Shared test data ────────────────────────────── #
 
-def test_board_initialization():
-    terminals = {1: (Coordinate(0, 0), Coordinate(4, 4)), 2: (Coordinate(0, 4), Coordinate(4, 0))}
-    game = FlowFree(5, 5, terminals=terminals)
-    # print(game.board_str())
-    assert game.board.shape == (5, 5), "Board should be initialized with shape (5, 5)"
+TERMINALS_5x5 = {
+    1: (Coordinate(0, 0), Coordinate(4, 4)),
+    2: (Coordinate(0, 4), Coordinate(4, 0)),
+}
 
+VALID_BOARD_3x5 = np.array(
+    [
+        [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+    ]
+)
 
-def test_board_creation():
-    board: np.ndarray = np.array(
-        [
-            [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), body(2), terminal(2)],
-        ]
-    )
+INVALID_SINGLE_TERMINAL = np.array(
+    [
+        [terminal(3), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+    ]
+)
 
-    assert FlowFree.is_valid_board(board), "The board should be valid according to FlowFree rules"
+INVALID_MISSING_HEAD = np.array(
+    [
+        [terminal(1), body(1), EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+    ]
+)
 
-    ff = FlowFree.from_board(board)
-    assert ff.board.shape == (3, 5), "Board should be created with shape (3, 5)"
-    assert np.array_equal(ff.board, board), "The created board should match the expected board"
-    # print(ff.board_str())
+INCOMPLETE_BUT_VALID = np.array(
+    [
+        [terminal(1), body(1), body(1), body(1), terminal(1)],
+        [body(1), body(1), body(1), body(1), EMPTY_CODE],
+    ]
+)
 
-    assert ff._tile(Coordinate(0, 0)) == (terminal(1)), (
-        "Tile at (0, 0) should be a terminal for color 1"
-    )
-    assert ff._tile(Coordinate(0, 1)) == EMPTY_CODE, "Tile at (0, 1) should be empty"
+COMPLETED_GAME_1 = np.array(
+    [
+        [terminal(1), body(1), body(1), body(1), terminal(1)],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+        [terminal(3), body(3), body(3), body(3), terminal(3)],
+    ]
+)
 
-    invalid_board = np.array(
-        [
-            [terminal(3), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), body(2), terminal(2)],
-        ]
-    )
+# Same as completed_Game_1 but vertical
+COMPLETED_GAME_2 = np.array(
+    [
+        [terminal(1), terminal(2), terminal(3)],
+        [body(1), body(2), body(3)],
+        [body(1), body(2), body(3)],
+        [body(1), body(2), body(3)],
+        [terminal(1), terminal(2), terminal(3)],
+    ]
+)
 
-    assert not FlowFree.is_valid_board(invalid_board), (
-        "The board should be invalid due to single terminals"
-    )
+IMPROPER_HEADS_1 = np.array(
+    [
+        [terminal(1), terminal(2), terminal(3)],
+        [head(1), body(2), body(3)],
+        [body(1), body(2), body(3)],
+        [body(1), body(2), body(3)],
+        [terminal(1), terminal(2), terminal(3)],
+    ]
+)
 
-    valid_board = np.array(
-        [
-            [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-        ]
-    )
-    assert FlowFree.is_valid_board(valid_board), (
-        "The board should be valid with a single color having terminals"
-    )
+IMPROPER_HEADS_2 = np.array(
+    [
+        [terminal(1), terminal(2), terminal(3)],
+        [body(1), body(2), body(3)],
+        [body(1), body(2), head(3)],
+        [body(1), body(2), body(3)],
+        [terminal(1), terminal(2), terminal(3)],
+    ]
+)
 
-    invalid_board = np.array(
-        [
-            [terminal(1), body(1), EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), body(2), terminal(2)],
-        ]
-    )
+FLOATING_HEAD = np.array(
+    [
+        [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, head(3), EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+    ]
+)
 
-    assert not FlowFree.is_valid_board(invalid_board), (
-        "The board should be invalid due to color 1 not having a head"
-    )
+DISCONNECTED_HEAD = np.array(
+    [
+        [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), head(2), terminal(2)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+    ]
+)
 
-    valid_board = np.array(
-        [
-            [terminal(1), body(1), body(1), body(1), terminal(1)],
-            [body(1), body(1), body(1), body(1), EMPTY_CODE],
-        ]
-    )
+FLOATING_BODY = np.array(
+    [
+        [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, body(1), body(1), EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), body(2), terminal(2)],
+    ]
+)
 
-    assert FlowFree.is_valid_board(invalid_board), (
-        "The board should be valid, despite being incomplete"
-    )
-
-    ff = FlowFree.from_board(valid_board)
-    assert ff.board.shape == (2, 5), "Board should be created with shape (2, 5)"
-    assert np.array_equal(ff.board, valid_board), (
-        "The created board should match the expected board"
-    )
-    assert not ff.is_solved(), "Game should not be solved yet, not all board squares are filled"
-    assert ff.is_color_solved(1), "Color 1 should be solved after placing all segments"
-
-
-def test_floating():
-    # Test for a floating head (no body)
-    board: np.ndarray = np.array(
-        [
-            [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, head(3), EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), body(2), terminal(2)],
-        ]
-    )
-
-    assert not FlowFree.is_valid_board(board), "The board should be invalid due to a floating head"
-
-    board: np.ndarray = np.array(
-        [
-            [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), head(2), terminal(2)],
-            [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
-        ]
-    )
-
-    assert not FlowFree.is_valid_board(board), (
-        "The board should be valid with a head that could complete the path but is not connected"
-    )
-
-    board: np.ndarray = np.array(
-        [
-            [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
-            [EMPTY_CODE, body(1), body(1), EMPTY_CODE, EMPTY_CODE],
-            [terminal(2), body(2), body(2), body(2), terminal(2)],
-        ]
-    )
-
-    assert not FlowFree.is_valid_board(board), "The board should not be valid with floating body"
+QUICK_GAME = np.array([[terminal(1), EMPTY_CODE, terminal(1)]])
 
 
-def test_path_completion():
-    # Test for a path that can be completed
-    board: np.ndarray = np.array(
+@pytest.fixture
+def empty_5x5_game() -> FlowFree:
+    """Return a blank 5 × 5 game with two colours."""
+    return FlowFree(5, 5, terminals=TERMINALS_5x5)
+
+
+def test_board_initialization(empty_5x5_game: FlowFree) -> None:
+    assert empty_5x5_game.board.shape == (5, 5)
+
+
+@pytest.mark.parametrize(
+    "board, is_valid",
+    [
+        (VALID_BOARD_3x5, True),
+        (INVALID_SINGLE_TERMINAL, False),
+        (INVALID_MISSING_HEAD, False),
+        (INCOMPLETE_BUT_VALID, True),
+        (FLOATING_HEAD, False),
+        (DISCONNECTED_HEAD, False),
+        (FLOATING_BODY, False),
+        (IMPROPER_HEADS_1, False),
+        (IMPROPER_HEADS_2, False),
+        (COMPLETED_GAME_1, True),
+        (COMPLETED_GAME_2, True),
+    ],
+)
+def test_is_valid_board(board: np.ndarray, is_valid: bool) -> None:
+    msg = "Board validity mismatch for test case"
+    assert FlowFree.is_valid_board(board) is is_valid, msg
+
+
+def test_board_creation_from_ndarray() -> None:
+    ff = FlowFree.from_board(VALID_BOARD_3x5)
+    assert ff.board.shape == (3, 5)
+    assert np.array_equal(ff.board, VALID_BOARD_3x5)
+
+    # Spot-checks
+    assert ff._tile(Coordinate(0, 0)) == terminal(1)
+    assert ff._tile(Coordinate(0, 1)) == EMPTY_CODE
+
+    # Game state
+    assert not ff.is_solved()
+    assert not ff.is_color_solved(1)
+    assert ff.is_color_solved(2)
+
+
+def test_path_completion() -> None:
+    board = np.array(
         [
             [terminal(1), EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, terminal(1)],
             [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
@@ -133,27 +174,64 @@ def test_path_completion():
         ]
     )
     ff = FlowFree.from_board(board)
-    assert ff.is_legal_move(Coordinate(2, 3), 2), "Legal move to place a 2 at (2, 3) "
-    ff.attempt_move(Coordinate(2, 3), 2)  # Completes the path for color 2
 
-    # print(ff._board)
+    move = Coordinate(2, 3)
+    assert ff.is_legal_move(move, 2)
 
-    assert ff._board[2, 3] == body(2), "Tile at (2, 3) should now be a body segment for color 2"
-    assert ff._heads[2] is None, "Head for color 2 should be None after completing the path"
-    assert ff.is_color_solved(2), "Color 2 should be solved after completing the path"
-    assert not ff.is_solved(), "Game should not be solved yet, color 1 is not completed"
-    assert not ff.is_color_solved(1), "Color 1 should not be solved yet, path is incomplete"
+    ill_move = Coordinate(0, 1)
+    assert not ff.is_legal_move(ill_move, 2)
+
+    ill_move = Coordinate(1, 1)
+    assert not ff.is_legal_move(ill_move, 2)
+    assert not ff.is_legal_move(ill_move, 1)
+
+    ff.attempt_move(move, 2)
+
+    assert ff._board[2, 3] == body(2)
+    assert ff._heads[2] is None
+    assert ff.is_color_solved(2)
+    assert not ff.is_solved()
+    assert not ff.is_color_solved(1)
 
 
-def test_quick_game():
-    board: np.ndarray = np.array([[terminal(1), EMPTY_CODE, terminal(1)]])
+def test_quick_game() -> None:
+    ff = FlowFree.from_board(QUICK_GAME)
 
-    ff = FlowFree.from_board(board)
-    assert ff.is_legal_move(Coordinate(0, 1), 1), "Legal move to place a 1 at (0, 1)"
-    ff.attempt_move(Coordinate(0, 1), 1)  # Completes the path for color 1
-    assert ff.is_solved(), "Game should be solved after completing the path for color 1"
-    assert ff.is_color_solved(1), "Color 1 should be solved after completing the path"
-    assert ff._heads[1] is None, "Head for color 1 should be None after completing the path"
-    assert ff._board[0, 1] == body(1), (
-        f"Tile at (0, 1) should now be a body segment for color 1. Got {ff._board[0, 1]} instead."
-    )
+    move = Coordinate(0, 1)
+    assert ff.is_legal_move(move, 1)
+    ff.attempt_move(move, 1)
+
+    assert ff.is_solved()
+    assert ff.is_color_solved(1)
+    assert ff._heads[1] is None
+    assert ff._board[0, 1] == body(1)
+
+
+@pytest.mark.parametrize(
+    "board, is_complete",
+    [
+        (VALID_BOARD_3x5, False),
+        (INCOMPLETE_BUT_VALID, False),
+        (COMPLETED_GAME_1, True),
+        (COMPLETED_GAME_2, True),
+    ],
+)
+def test_game_completion(board: np.ndarray, is_complete: bool) -> None:
+    msg = "Board game completion status for test case"
+    if FlowFree.is_valid_board(board):
+        f = FlowFree.from_board(board)
+        assert f.is_solved() is is_complete, msg
+
+
+def test_board_import_export() -> None:
+    for board in [
+        VALID_BOARD_3x5,
+        COMPLETED_GAME_1,
+        COMPLETED_GAME_2,
+        INCOMPLETE_BUT_VALID,
+    ]:
+        ff = FlowFree.from_board(board)
+        exported = ff.get_internal_board()
+        assert np.array_equal(exported, board), "Exported board does not match original"
+        imported_ff = FlowFree.from_board(exported)
+        assert np.array_equal(imported_ff.board, board), "Imported board does not match original"
