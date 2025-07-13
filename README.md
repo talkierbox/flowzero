@@ -102,7 +102,7 @@ PUCT-MCTS: Coulom (2006); Kocsis & Szepesvári (2006)
 
 Gymnasium: Brockman et al. (2016)
 
-Special Thanks: [Ben Torvaney](https://github.com/Torvaney), [Loki Chow](https://github.com/lohchness), [Matt Zucker](https://github.com/mzucker), and contributors
+Special Thanks: [Matt Zucker](https://github.com/mzucker), [Ben Torvaney](https://github.com/Torvaney), [Loki Chow](https://github.com/lohchness), and contributors
 
 ## License & Disclaimer
 Apache 2.0 License

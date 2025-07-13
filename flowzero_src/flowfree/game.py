@@ -11,8 +11,8 @@ import numpy as np
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-MAX_COLORS: int = 15  # standard Flow Free palette
-HEAD_OFFSET: int = 32  # codes from 33 to 47 mark head positions
+MAX_COLORS: int = 25  # standard Flow Free palette
+HEAD_OFFSET: int = 32  # codes from >= 33 mark head positions
 
 EMPTY_CODE: np.int8 = np.int8(0)
 
