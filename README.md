@@ -90,6 +90,8 @@ Expert-Iteration Loop
 - cross-entropy on MCTS distributions
 - mean-squared error on game outcomes
 
+TODO: Finish this
+
 ## Acknowledgments & References
 
 Expert Iteration: Anthony, Tian & Barber (2017)
@@ -98,13 +100,10 @@ AlphaZero: Silver et al. (2017)
 
 PUCT-MCTS: Coulom (2006); Kocsis & Szepesvári (2006)
 
-Gymnasium: Brockman et al. (2016); Community Fork (2023)
+Gymnasium: Brockman et al. (2016)
 
-Flow Free Data: Rob Swindell, Loki Chow, contributors
-
-SAT Solver: PySAT Toolkit
+Special Thanks: [Ben Torvaney](https://github.com/Torvaney), [Loki Chow](https://github.com/lohchness), [Matt Zucker](https://github.com/mzucker), and contributors
 
 ## License & Disclaimer
-
 Apache 2.0 License
 Not affiliated with Big Duck Games LLC or DeepMind.

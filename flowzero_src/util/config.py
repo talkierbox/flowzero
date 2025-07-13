@@ -1,4 +1,5 @@
 """Utility file for parsing yaml configuration file."""
+
 from pathlib import Path
 
 import yaml
@@ -7,6 +8,7 @@ BASE = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE.parent / "config.yaml"
 
 config: dict = yaml.safe_load(CONFIG_PATH.read_text())
+
 
 def get_key(key: str, default: str | None = None) -> str | None:
     """
@@ -19,20 +21,22 @@ def get_key(key: str, default: str | None = None) -> str | None:
     Returns:
         The value associated with the key, or the default value if the key is not found.
     """
-    keys = key.split('.')
+    keys = key.split(".")
     value = config
-    for k in keys: 
+    for k in keys:
         if isinstance(value, dict) and k in value:
             value = value[k]
         else:
             return default  # Return default if key is not found
     return value
 
+
 def print_config() -> None:
     """Print the entire configuration."""
     for key, value in config.items():
         print(f"{key}: {value}")
-        
+
+
 def is_verbose() -> bool:
     """
     Check if verbose logging is enabled.
@@ -41,6 +45,7 @@ def is_verbose() -> bool:
         bool: True if verbose logging is enabled, False otherwise.
     """
     return get_key("logging.verbose", False)
-        
+
+
 if __name__ == "__main__":
     print_config()
