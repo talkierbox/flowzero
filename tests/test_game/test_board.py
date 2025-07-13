@@ -121,7 +121,7 @@ QUICK_GAME = np.array([[terminal(1), EMPTY_CODE, terminal(1)]])
 
 @pytest.fixture
 def empty_5x5_game() -> FlowFree:
-    """Return a blank 5 × 5 game with two colours."""
+    """Return a blank 5 x 5 game with two colours."""
     return FlowFree(5, 5, terminals=TERMINALS_5x5)
 
 

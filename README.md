@@ -1,3 +1,4 @@
+[![tests](https://github.com/talkierbox/flowzero/actions/workflows/ci.yml/badge.svg)](https://github.com/talkierbox/flowzero/actions)
 # FlowZero
 
 FlowZero is a search-augmented reinforcement-learning agent, inspired by AlphaZero, designed to solve _Flow Free_ puzzles from first principles. It combines a hand-rolled Monte Carlo Tree Search (PUCT) with a lightweight ResNet policy-value network in an Expert-Iteration loop, while relying on established libraries only for tensor operations, logging, and continuous integration.
@@ -105,5 +106,4 @@ Gymnasium: Brockman et al. (2016)
 Special Thanks: [Matt Zucker](https://github.com/mzucker), [Ben Torvaney](https://github.com/Torvaney), [Loki Chow](https://github.com/lohchness), and contributors
 
 ## License & Disclaimer
-Apache 2.0 License
-Not affiliated with Big Duck Games LLC or DeepMind.
+Apache 2.0 License. This project is not affiliated with Big Duck Games LLC or DeepMind.
