@@ -1,3 +1,5 @@
+"""Flow Free game logic module. Defines the FlowFree class for managing game state and board operations. Also implements utility functions for enconding and decoding game objects as integers."""
+
 from __future__ import annotations
 
 from collections import defaultdict, deque
