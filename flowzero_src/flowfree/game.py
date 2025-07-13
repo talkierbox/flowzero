@@ -1,19 +1,3 @@
-"""
-Head-aware internal board representation for the Flow Free puzzle.
-
-Each tile is stored as a single signed int8, so an in-progress board can be saved or loaded without extra metadata:
-
-0 represents an empty square
-
-+c (1 to 15) represents a body segment of color c
-
--c (-1 to -15) represents a terminal of color c
-
-HEAD_OFFSET + c represents the current head (path frontier) of color c
-
-HEAD_OFFSET is chosen to keep these values within the valid int8 range (-128 to 127) and avoid overlap with other codes.
-"""
-
 from __future__ import annotations
 
 from collections import defaultdict, deque
@@ -25,49 +9,49 @@ import numpy as np
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-MAX_COLORS: int = 15  # vanilla Flow Free palette
-HEAD_OFFSET: int = 32  # 33…47 become head codes
+MAX_COLORS: int = 15  # standard Flow Free palette
+HEAD_OFFSET: int = 32  # codes from 33 to 47 mark head positions
 
 EMPTY_CODE: np.int8 = np.int8(0)
 
 
 def body(c: int) -> np.int8:
-    """Return the int8 code for a body segment of color *c*."""
+    """Return the int8 code for a body segment of the given color."""
     return np.int8(c)
 
 
 def terminal(c: int) -> np.int8:
-    """Return the int8 code for a terminal of color *c*."""
+    """Return the int8 code for a terminal of the given color."""
     return np.int8(-c)
 
 
 def head(c: int) -> np.int8:
-    """Return the int8 code for the head of color *c*."""
+    """Return the int8 code for the head (current frontier) of the given color."""
     return np.int8(HEAD_OFFSET + c)
 
 
 def is_empty(v: int) -> bool:
-    """Return ``True`` iff *v* encodes an empty tile."""
+    """Return True if v represents an empty tile."""
     return v == 0
 
 
 def is_body(v: int) -> bool:
-    """Return ``True`` iff *v* encodes a body segment."""
+    """Return True if v represents a body segment."""
     return 0 < v <= MAX_COLORS
 
 
 def is_terminal(v: int) -> bool:
-    """Return ``True`` iff *v* encodes a terminal."""
+    """Return True if v represents a terminal."""
     return -MAX_COLORS <= v < 0
 
 
 def is_head(v: int) -> bool:
-    """Return ``True`` iff *v* encodes a head segment."""
+    """Return True if v represents a head segment."""
     return HEAD_OFFSET < v <= HEAD_OFFSET + MAX_COLORS
 
 
 def color_of(v: int) -> int:
-    """Return the color index (1…15) associated with tile code *v*."""
+    """Return the color index (1 to 15) for the tile code v."""
     if is_body(v):
         return v
     if is_terminal(v):
@@ -89,13 +73,13 @@ VALID_TILE_INTS: set[int] = (
 
 @dataclass(frozen=True, slots=True)
 class Coordinate:
-    """Immutable (row, col) grid coordinate."""
+    """Immutable grid coordinate (row, col)."""
 
     row: int
     col: int
 
     def neighbors4(self) -> list[Coordinate]:
-        """Return the four cardinal neighbours of the coordinate."""
+        """Return the four adjacent coordinates (up, down, left, right)."""
         return [
             Coordinate(self.row - 1, self.col),
             Coordinate(self.row + 1, self.col),
@@ -104,31 +88,30 @@ class Coordinate:
         ]
 
     def manhattan(self, other: Coordinate) -> int:
-        """Return L1 distance to *other*."""
+        """Return the Manhattan distance to another coordinate."""
         return abs(self.row - other.row) + abs(self.col - other.col)
 
     def __add__(self, other: Coordinate) -> Coordinate:
-        """Return a new coordinate that is the sum of this and *other*."""
+        """Return a new coordinate that is the sum of this and other."""
         return Coordinate(self.row + other.row, self.col + other.col)
 
     def __subtract__(self, other: Coordinate) -> Coordinate:
-        """Return a new coordinate that is the difference of this and *other*."""
+        """Return a new coordinate that is the difference of this and other."""
         return Coordinate(self.row - other.row, self.col - other.col)
 
 
 def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]]:
-    """Parse an ASCII board string into a mapping of color IDs to terminal coordinates."""
+    """Convert an ASCII board string into a mapping from color IDs to their terminal coordinates."""
     rows: list[str] = [
-        line.rstrip()  # keep leading spaces if any
+        line.rstrip()  # keep any leading spaces
         for line in board_str.strip("\n").splitlines()
         if line.strip()
     ]
 
-    len(rows)
     if any(len(r) != len(rows[0]) for r in rows):
-        raise ValueError("all rows must have the same length")
+        raise ValueError("All rows must have the same length")
 
-    # first sight of a new symbol → next free ID
+    # assign each new symbol a unique color ID
     symbol_to_id: dict[str, int] = {}
     next_id = 1
 
@@ -138,19 +121,18 @@ def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]
         for c, ch in enumerate(row):
             if ch == ".":
                 continue
-            # allocate ID lazily
             cid = symbol_to_id.setdefault(ch, next_id)
             if cid == next_id:
                 next_id += 1
             occurrences[cid].append(Coordinate(r, c))
 
-    # squash to pairs, validating counts --------------------------------------
+    # convert occurrences into terminal pairs and check counts
     terminals: dict[int, tuple[Coordinate, Coordinate]] = {}
     for cid, coords in occurrences.items():
         if len(coords) != 2:
+            sym = next(k for k, v in symbol_to_id.items() if v == cid)
             raise ValueError(
-                f"symbol '{list(symbol_to_id.keys())[list(symbol_to_id.values()).index(cid)]}' "
-                f"appears {len(coords)} times (should be exactly twice)"
+                f"Symbol '{sym}' appears {len(coords)} times (should appear exactly twice)"
             )
         terminals[cid] = (coords[0], coords[1])
 
@@ -158,96 +140,93 @@ def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]
 
 
 class FlowFree:
-    """Mutable in-memory game state for a Flow Free board."""
+    """Mutable game state for a Flow Free board."""
 
-    #
     def __init__(
         self,
         rows: int,
         cols: int,
         terminals: dict[int, tuple[Coordinate, Coordinate]],
     ) -> None:
-        """Create a fresh board with given *terminals* mapping color→(t1, t2)."""
+        """Create a new board with given terminals mapping color to terminal coordinates."""
         self.rows, self.cols = rows, cols
         self._board: np.ndarray = np.zeros((rows, cols), dtype=np.int8)
         self._heads: dict[int, Coordinate | None] = dict.fromkeys(terminals)
         self._terminals = terminals
 
-        # place terminal codes
+        # place the terminal codes on the board
         for color, (a, b) in terminals.items():
             self._place(a, terminal(color))
             self._place(b, terminal(color))
 
     def _in_bounds(self, c: Coordinate) -> bool:
-        """Return ``True`` iff *c* lies on the board."""
+        """Return True if coordinate c is inside the board bounds."""
         return 0 <= c.row < self.rows and 0 <= c.col < self.cols
 
     def _tile(self, c: Coordinate) -> int:
-        """Return raw int8 code stored at *c*."""
+        """Return the raw int8 code at coordinate c."""
         if not self._in_bounds(c):
             raise ValueError("Coordinate out of bounds")
         return int(self._board[c.row, c.col])
 
     def _place(self, c: Coordinate, code: np.int8) -> None:
-        """Write *code* to board at *c* without checks."""
+        """Write code to the board at coordinate c without validation."""
         self._board[c.row, c.col] = code
 
     def is_legal_move(self, c: Coordinate, color: int) -> bool:
-        """Return ``True`` if placing next segment of *color* at *c* is legal."""
+        """Return True if placing the next segment of the given color at c is allowed."""
         if not self._in_bounds(c) or not is_empty(self._tile(c)):
             return False
 
         if color_of(self._tile(c)) == color or is_terminal(self._tile(c)):
-            # cannot place on a tile of the same color or on any terminal
+            # cannot place on a tile of the same color or on a terminal
             return False
 
         if color == terminal(color) or color == EMPTY_CODE:
-            # cannot place a terminal or empty tile
+            # cannot place a terminal or empty tile here
             return False
 
         if color not in VALID_TILE_INTS:
             raise ValueError("Invalid color code")
 
-        head_pos = self._heads.get(color, None)
+        head_pos = self._heads.get(color)
         if head_pos is None:
-            # must touch one of its terminals
+            # new path must touch one of its terminals
             return any(
                 self._in_bounds(n)
                 and is_terminal(self._tile(n))
                 and color_of(self._tile(n)) == color
                 for n in c.neighbors4()
             )
-        # must extend from current head
+        # move must extend from current head position
         return c.manhattan(head_pos) == 1
 
     def reset_color(self, color: int) -> None:
-        """Reset all paths of a specific color."""
+        """Clear all path segments of a specific color but leave the terminals."""
         if color == EMPTY_CODE or color not in VALID_TILE_INTS:
             raise ValueError("Invalid color code")
 
         color = color_of(color)
-        # Remove all tiles of the color, do not remove the terminals. Also remove the head if it exists
-        for c in self._generate_board_coords():
-            tile = self._tile(c)
+        # remove all body and head tiles for this color
+        for coord in self._generate_board_coords():
+            tile = self._tile(coord)
             if (is_body(tile) or is_head(tile)) and color_of(tile) == color:
-                self._place(c, EMPTY_CODE)
+                self._place(coord, EMPTY_CODE)
 
-        # Reset the head position for this color
+        # clear the head tracking for this color
         self._heads[color] = None
-        return
 
     def reset_board(self) -> None:
-        """Reset the board to just the terminals."""
+        """Clear all paths and return the board to only the terminals."""
         for color in range(1, MAX_COLORS + 1):
-            self.reset_color(color)  # Reset all colors
+            self.reset_color(color)
 
     def attempt_move(self, c: Coordinate, color: int) -> bool:
-        """Place next segment of *color* at *c* if legal, updating heads and connecting terminals (also resetting interferences)."""
+        """Try placing the next segment of the given color at c. Returns True if the move was applied (including completing a path)."""
         if self.is_solved():
             return False
 
         color = color_of(color)
-
         if (
             color not in VALID_TILE_INTS
             or color == EMPTY_CODE
@@ -258,24 +237,23 @@ class FlowFree:
         if not self.is_legal_move(c, color):
             return False
 
-        # If this new coordinate contains a different color, reset that color
+        # if this spot has another color's path, clear that path first
         existing_tile = self._tile(c)
         if not is_empty(existing_tile) and color_of(existing_tile) != color:
-            existing_color = color_of(existing_tile)
-            self.reset_color(existing_color)
+            self.reset_color(color_of(existing_tile))
 
-        head_pos = self._heads.get(color, None)
+        head_pos = self._heads.get(color)
         if head_pos is None:
-            # Place the first segment of a new path as a head
+            # first segment of a new path becomes a head
             self._place(c, head(color))
         else:
-            # demote old head to body
+            # turn the old head into a regular body
             self._place(head_pos, body(color))
-        # place new head
+        # place the new head and track it
         self._place(c, head(color))
         self._heads[color] = c
 
-        # Check if head connects two terminals
+        # check if this head now touches two terminals (completing the path)
         adj_terminals = [
             n
             for n in c.neighbors4()
@@ -284,82 +262,76 @@ class FlowFree:
             and color_of(self._tile(n)) == color
         ]
         if len(adj_terminals) == 2:
-            # If the head connects two terminals, remove the head and mark color as solved
+            # complete the path and clear head tracking
             self._place(c, body(color))
             self._heads[color] = None
             return True
 
-        # check closure into opposite terminal iff this is not the terminal that we started from (i.e. not the first segment and no same color body)
-        # get the positions of the two terminals for this color
+        # check if placing here closes the path between the two terminals
         term1, term2 = self._terminals[color]
-
-        # Theoretical board
-        t_b = np.copy(self._board)
-        t_b[c.row, c.col] = head(color)  # Place the head temporarily
-        if self._connected(term1, term2, color, t_b):
-            # Place as a body segment and remove the head
+        temp_board = np.copy(self._board)
+        temp_board[c.row, c.col] = head(color)
+        if self._connected(term1, term2, color, temp_board):
             self._place(c, body(color))
             self._heads[color] = None
             return True
 
-        # Everything passes
         return True
 
     def _connected(
         self, a: Coordinate, b: Coordinate, color: int, board: np.ndarray | None = None
     ) -> bool:
-        """Return ``True`` iff *a* and *b* are connected by tiles of *color*."""
-        q: deque[Coordinate] = deque([a])
+        """Return True if coordinates a and b are connected by tiles of the given color."""
+        queue: deque[Coordinate] = deque([a])
         seen: set[Coordinate] = {a}
 
         if board is None:
             board = self._board
 
-        while q:
-            cur = q.popleft()
-            if cur == b:
+        while queue:
+            current = queue.popleft()
+            if current == b:
                 return True
-            for n in cur.neighbors4():
+            for n in current.neighbors4():
                 if self._in_bounds(n) and n not in seen and color_of(self._tile(n)) == color:
                     seen.add(n)
-                    q.append(n)
+                    queue.append(n)
         return False
 
     def is_color_solved(self, color: int) -> bool:
-        """Return ``True`` iff color *color*'s terminals are connected."""
-        a, b = self._terminals[color]
-        return self._heads[color] is None and self._connected(a, b, color)
+        """Return True if the two terminals for the given color are connected."""
+        t1, t2 = self._terminals[color]
+        return self._heads[color] is None and self._connected(t1, t2, color)
 
     def is_solved(self) -> bool:
-        """Return ``True`` iff every color is solved and no empties remain."""
-        head_vals = set(range(HEAD_OFFSET + 1, HEAD_OFFSET + MAX_COLORS + 1))
+        """Return True if every color path is complete and there are no empty tiles."""
+        head_codes = set(range(HEAD_OFFSET + 1, HEAD_OFFSET + MAX_COLORS + 1))
         return all(self.is_color_solved(c) for c in self._terminals) and all(
-            item not in head_vals and item != 0 for item in self._board.flatten()
+            item not in head_codes and item != 0 for item in self._board.flat
         )
 
     def _generate_board_coords(self) -> Iterator[Coordinate]:
-        """Yield all coordinates on the board."""
+        """Yield every coordinate on the board in row-major order."""
         for r in range(self.rows):
             for c in range(self.cols):
                 yield Coordinate(r, c)
 
     @property
     def board(self) -> np.ndarray:
-        """Return a *copy* of the current board array."""
+        """Return a copy of the current board array."""
         return self._board.copy()
 
     @classmethod
     def from_ascii_board(cls, data: str) -> FlowFree:
-        """Create a game instance from an ASCII board string."""
-        # Extract # of rows and columns from the str by splitting on newlines and ignoring empty lines
+        """Create a FlowFree instance from an ASCII board string."""
         lines = [line for line in data.strip().splitlines() if line.strip()]
         rows, cols = len(lines), len(lines[0])
         return FlowFree(rows, cols, parse_ascii_board(data))
 
     @classmethod
     def is_valid_board(cls, arr: np.ndarray) -> bool:
-        """Return ``True`` iff *arr* is a syntactically valid Flow-Free board."""
-        # ───────────────────────────── basic shape / dtype / values ─────────────────────────────
+        """Return True if arr is a valid Flow Free board."""
+        # check basic shape, dtype and valid tile codes
         if (
             not isinstance(arr, np.ndarray)
             or arr.dtype != np.int8
@@ -371,91 +343,77 @@ class FlowFree:
         n_rows, n_cols = arr.shape
 
         def in_bounds(c: Coordinate) -> bool:
-            """True iff *c* is inside the array."""
+            """Return True if coordinate c is inside arr bounds."""
             return 0 <= c.row < n_rows and 0 <= c.col < n_cols
 
-        # ───────────────────────────── first pass: BFS over every colour ─────────────────────────
         visited: set[Coordinate] = set()
-        # per-colour bookkeeping
-        col_components: dict[
-            int, list[dict[str, int]]
-        ] = {}  # each dict: {'heads', 'terms', 'bodies'}
+        components: dict[int, list[dict[str, int]]] = {}
 
         for r in range(n_rows):
             for c in range(n_cols):
                 start = Coordinate(r, c)
-                v = int(arr[r, c])
-                if is_empty(v) or start in visited:
+                val = int(arr[r, c])
+                if is_empty(val) or start in visited:
                     continue
 
-                colour = color_of(v)
-                comp = {"heads": 0, "terms": 0, "bodies": 0}
+                color = color_of(val)
+                stats = {"heads": 0, "terms": 0, "bodies": 0}
+                queue: deque[Coordinate] = deque([start])
 
-                # BFS for this component
-                q: deque[Coordinate] = deque([start])
-                while q:
-                    cur = q.popleft()
+                while queue:
+                    cur = queue.popleft()
                     if cur in visited:
                         continue
                     visited.add(cur)
 
-                    cur_val = int(arr[cur.row, cur.col])
-                    if is_head(cur_val):
-                        comp["heads"] += 1
-                    elif is_terminal(cur_val):
-                        comp["terms"] += 1
-                    else:  # body segment
-                        comp["bodies"] += 1
+                    tile_val = int(arr[cur.row, cur.col])
+                    if is_head(tile_val):
+                        stats["heads"] += 1
+                    elif is_terminal(tile_val):
+                        stats["terms"] += 1
+                    else:
+                        stats["bodies"] += 1
 
                     for n in cur.neighbors4():
                         if (
                             in_bounds(n)
                             and n not in visited
-                            and color_of(int(arr[n.row, n.col])) == colour
+                            and color_of(int(arr[n.row, n.col])) == color
                         ):
-                            q.append(n)
+                            queue.append(n)
 
-                # store
-                col_components.setdefault(colour, []).append(comp)
+                components.setdefault(color, []).append(stats)
 
-        # ───────────────────────────── second pass: per-colour rules ─────────────────────────────
-        for comps in col_components.values():
-            heads_total = sum(c["heads"] for c in comps)
-            bodies_total = sum(c["bodies"] for c in comps)
-            terminals_total = sum(c["terms"] for c in comps)  # should be 2 by design
+        for comps in components.values():
+            total_heads = sum(c["heads"] for c in comps)
+            total_terms = sum(c["terms"] for c in comps)
+            total_bodies = sum(c["bodies"] for c in comps)
 
-            # 1) quick structural rejects
-            if heads_total > 1 or terminals_total != 2:
+            # each color must have exactly two terminals and at most one head
+            if total_terms != 2 or total_heads > 1:
                 return False
-            # body-only island?
-            if any(c["bodies"] and c["heads"] == 0 and c["terms"] == 0 for c in comps):
+            # no isolated body without a head or terminals
+            if any(s["bodies"] and s["heads"] == 0 and s["terms"] == 0 for s in comps):
                 return False
 
-            # 2) connectivity of the two terminals
-            terminals_connected = any(c["terms"] == 2 for c in comps)
+            path_closed = any(s["terms"] == 2 for s in comps)
+            if total_bodies > 0:
+                if path_closed:
+                    # finished path should have no head
+                    if total_heads != 0:
+                        return False
+                else:
+                    # unfinished path should have exactly one head
+                    if total_heads != 1:
+                        return False
 
-            if bodies_total == 0:
-                continue
-
-            # bodies present from here on
-            if terminals_connected:
-                # finished path - must have NO head
-                if heads_total != 0:
-                    return False
-            else:
-                # unfinished path - must have EXACTLY ONE head
-                if heads_total != 1:
-                    return False
-
-        # If every colour passes the checks the board is syntactically valid
         return True
 
     @classmethod
     def from_board(cls, arr: np.ndarray) -> FlowFree:
-        """Create a game instance from a saved numpy ``int8`` board."""
+        """Create a game instance from a saved numpy int8 board."""
         if not cls.is_valid_board(arr):
             raise ValueError("Invalid Flow Free board array")
-        # gather terminals
         terms: dict[int, list[Coordinate]] = {}
         for r in range(arr.shape[0]):
             for c in range(arr.shape[1]):
@@ -465,7 +423,6 @@ class FlowFree:
         starting = {k: (v[0], v[1]) for k, v in terms.items()}
         game = cls(arr.shape[0], arr.shape[1], starting)
         game._board = arr.copy()
-        # rebuild head positions
         for r in range(arr.shape[0]):
             for c in range(arr.shape[1]):
                 v = int(arr[r, c])
@@ -474,40 +431,40 @@ class FlowFree:
         return game
 
     def get_internal_board(self) -> np.ndarray:
-        """Return the internal board representation."""
+        """Return the internal board array after verifying it is valid."""
         assert self.is_valid_board(self._board), (
-            "Internal board state is marked as invalid --- Something has gone wrong!"
+            "Internal board state is invalid. Something went wrong!"
         )
         return self._board.copy()
 
     def board_str(self) -> str:
-        """Pretty string view of the board with borders."""
+        """Return a string view of the board with borders."""
 
         def cell(token: str) -> str:
-            """Pad/align each cell to width 3."""
+            """Pad each cell token to width 3 for alignment."""
             return f"{token:>3}"
 
-        top_bottom = "+" + "-" * (self.cols * 4 - 1) + "+"  # 3 chars + 1 space per cell
-        rows_out: list[str] = [top_bottom]
+        top_line = "+" + "-" * (self.cols * 4 - 1) + "+"
+        lines = [top_line]
 
         for r in range(self.rows):
-            pieces: list[str] = []
+            row_cells: list[str] = []
             for c in range(self.cols):
                 v = self._tile(Coordinate(r, c))
                 if is_empty(v):
-                    pieces.append(cell("."))
+                    row_cells.append(cell("."))
                 elif is_body(v):
-                    pieces.append(cell(str(color_of(v))))
+                    row_cells.append(cell(str(color_of(v))))
                 elif is_terminal(v):
-                    pieces.append(cell(f"{color_of(v)}T"))
+                    row_cells.append(cell(f"{color_of(v)}T"))
                 elif is_head(v):
-                    pieces.append(cell(f"{color_of(v)}H"))
-                else:  # should never occur
-                    raise ValueError("Invalid tile code in board.")
-            rows_out.append("|" + " ".join(pieces) + "|")
+                    row_cells.append(cell(f"{color_of(v)}H"))
+                else:
+                    raise ValueError("Invalid tile code on board")
+            lines.append("|" + " ".join(row_cells) + "|")
 
-        rows_out.append(top_bottom)
-        return "\n".join(rows_out)
+        lines.append(top_line)
+        return "\n".join(lines)
 
     def __str__(self) -> str:
         """Return a string representation of the board."""
