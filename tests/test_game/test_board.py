@@ -235,3 +235,22 @@ def test_board_import_export() -> None:
         assert np.array_equal(exported, board), "Exported board does not match original"
         imported_ff = FlowFree.from_board(exported)
         assert np.array_equal(imported_ff.board, board), "Imported board does not match original"
+
+
+def test_color_reset() -> None:
+    """Test resetting a color in the game."""
+    ff = FlowFree.from_board(VALID_BOARD_3x5)
+    assert not ff.is_color_solved(1)
+
+    # Attempt to reset color 1
+    ff.reset_color(1)
+
+    # Check that the board is unchanged, but color 1 is now unsolved
+    assert np.array_equal(ff.board, VALID_BOARD_3x5)
+    assert not ff.is_color_solved(1)
+    assert ff._heads[1] is None  # Color 1 should have no head after reset
+
+    # Reset color 2
+    ff.reset_color(2)
+    assert not ff.is_color_solved(2)  # Color 2 should no longer be solved
+    assert not np.array_equal(ff.board, VALID_BOARD_3x5)  # Board should be changed

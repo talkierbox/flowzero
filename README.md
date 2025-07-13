@@ -1,71 +1,110 @@
 # FlowZero
 
-> **An AlphaZero-style, search-augmented reinforcement-learning agent that learns to solve _Flow Free_ puzzles from scratch.**
-
-Flow-Zero combines a hand-rolled Monte-Carlo Tree Search (PUCT) with a lightweight ResNet policy-value network in an **Expert-Iteration** (ExIt) loop – the same recipe that powers AlphaZero.  
-The project is designed to be my first exploration into reinforcement learning: most of the "interesting" algorithmic pieces are written from scratch, while heavy-lifting (tensor math, logging, CI) leans on modern libraries.
-
----
-
-## ⚡️ Key Features
-|---------|
-| **Expert-Iteration loop** with PUCT-MCTS + ResNet and formal approximate policy-iteration. |
-| **Custom `gymnasium` environment** for the broader RL community to use. |
-| **Mostly-from-scratch core** for my own understanding |
-| **Automatic curriculum & metrics** which auto-scales 5×5 all the way to 14×14; logs solve-rate, moves, tree nodes. |
-
+FlowZero is a search-augmented reinforcement-learning agent, inspired by AlphaZero, designed to solve _Flow Free_ puzzles from first principles. It combines a hand-rolled Monte Carlo Tree Search (PUCT) with a lightweight ResNet policy-value network in an Expert-Iteration loop, while relying on established libraries only for tensor operations, logging, and continuous integration.
 
 ---
 
 ## Table of Contents
-1. [Project Overview](#project-overview)
-2. [Quick Start](#quick-start)
-3. [TODO](#todo)
-4. [Acknowledgements & References](#acknowledgements--references)
+
+- [FlowZero](#flowzero)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Repository Layout](#repository-layout)
+  - [Usage](#usage)
+- [Development Details](#development-details)
+  - [Acknowledgments \& References](#acknowledgments--references)
+  - [License \& Disclaimer](#license--disclaimer)
 
 ---
 
-## Project Overview
-Flow Free levels are treated as deterministic, episodic MDPs.  
-Each training iteration alternates:
+## Overview
 
-1. **Planning (Expert).** PUCT-MCTS runs ~800 simulations per move using the current network’s priors and value estimates.  
-2. **Learning (Apprentice).** A 6-block ResNet is trained by supervised learning to imitate the tree policy (cross-entropy) and regress the final outcome (MSE).
+Flow Free puzzles are cast as deterministic, episodic Markov Decision Processes (MDPs). Training proceeds in repeated Expert-Iteration cycles:
 
-This _Expert-Iteration_ cycle yields continual policy improvement without external supervision or human data.
+1. **Planning (Expert):**  
+   PUCT-MCTS runs a fixed number of simulations per move, using the current ResNet’s policy and value estimates.  
+2. **Learning (Apprentice):**  
+   A 6-block ResNet is trained to  
+   - imitate the tree’s move distribution (cross-entropy loss), and  
+   - predict final outcomes (mean-squared error loss).  
+
+This self-play framework yields continual policy improvement without human-labeled data.
 
 ---
 
-## Quick Start
+## Repository Layout
 
-```bash
-    # clone & install
-    git clone https://github.com/yourusername/flowzero
-    cd flowzero-src
-# TODO
+```plaintext
+.
+├── flowzero_src/
+│   ├── data/
+│   │   ├── handcrafted/       # Curated puzzle definitions
+│   │   ├── synthetic/         # Automatically generated puzzles
+│   │   └── unsolvable/        # Negative examples (e.g. unsolvable_cross.txt)
+│   ├── flowfree/
+│   │   ├── game.py            # Board representation, move validation, Gymnasium env
+│   │   ├── generate_board.py  # Procedural puzzle generator
+│   │   └── solver.py          # SAT encoder & solver for data generation
+│   ├── util/                  # Helper functions and utilities
+│   └── train.py               # Orchestrates Expert-Iteration training
+├── tests/                     # pytest suite
+│   ├── test_game/
+│   ├── test_utilities/
+│   └── conftest.py
+├── requirements.txt
+├── pyproject.toml
+├── config.yaml
+├── LICENSE
+└── .github/
+    └── workflows/ci.yml       # Linting, formatting, and test automation
 ```
 
-## TODO
-- [ ] **GPU-batched MCTS** – integrate DeepMind `mctx` or `turbozero` for >10× speed-up.  
-- [ ] **Mobile export** – distil policy to ONNX / CoreML for on-device inference.  
-- [ ] **Graph encoder** – swap CNN for GNN to test large-board generalisation.  
-- [ ] **Workshop paper** – draft a short report once ≥90 % solve-rate on 11×11 pack.  
 
-Community PRs welcome 🚀
+Create and activate a Python 3.8+ virtual environment:
 
-## Acknowledgements & References
-| Area | Credit |
-|------|--------|
-| **Expert Iteration** | Anthony, Tian & Barber (2017) — “Thinking Fast and Slow with Deep Learning and Tree Search.” |
-| **AlphaZero inspiration** | Silver _et al._ (2017) — “Mastering Chess and Shogi by Self-Play with a General RL Algorithm.” DeepMind. |
-| **Original MCTS / PUCT** | Coulom (2006); Kocsis & Szepesvári (2006). |
-| **Environment tooling** | OpenAI Gym (Brockman _et al._ 2016) → Gymnasium community fork (2023). |
-| **Flow Free level data** | Independent solver repos by Rob Swindell & contributors. |
+python3 -m venv venv
+source venv/bin/activate
 
-FlowZero is **not** affiliated with Big Duck Games LLC (creators of _Flow Free_) or Google DeepMind. All trademarks are the property of their respective owners.
+Install dependencies:
 
----
+pip install -r ../requirements.txt
 
-**Extra Note:** I am aware that flow free can be solved through combinatorial optimization or SAT solvers, but I do enjoy this game, hence why I used it as an excuse to learn MCTS and RL.
+## Usage
 
-💧
+Train or evaluate the agent:
+
+```bash
+python train.py \
+  --board-size 9 \
+  --simulations-per-move 800 \
+  --epochs 20
+```
+
+Inspect all options: `python train.py --help`
+
+# Development Details
+
+Expert-Iteration Loop
+- Expert (Planning): PUCT-MCTS with a configurable number of simulations per move (default: 800).
+- Apprentice (Learning): 6-block ResNet optimized via
+- cross-entropy on MCTS distributions
+- mean-squared error on game outcomes
+
+## Acknowledgments & References
+
+Expert Iteration: Anthony, Tian & Barber (2017)
+
+AlphaZero: Silver et al. (2017)
+
+PUCT-MCTS: Coulom (2006); Kocsis & Szepesvári (2006)
+
+Gymnasium: Brockman et al. (2016); Community Fork (2023)
+
+Flow Free Data: Rob Swindell, Loki Chow, contributors
+
+SAT Solver: PySAT Toolkit
+
+## License & Disclaimer
+
+Apache 2.0 License
+Not affiliated with Big Duck Games LLC or DeepMind.

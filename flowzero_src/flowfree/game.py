@@ -16,7 +16,7 @@ HEAD_OFFSET is chosen to keep these values within the valid int8 range (-128 to 
 
 from __future__ import annotations
 
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -116,6 +116,47 @@ class Coordinate:
         return Coordinate(self.row - other.row, self.col - other.col)
 
 
+def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]]:
+    """Parse an ASCII board string into a mapping of color IDs to terminal coordinates."""
+    rows: list[str] = [
+        line.rstrip()  # keep leading spaces if any
+        for line in board_str.strip("\n").splitlines()
+        if line.strip()
+    ]
+
+    len(rows)
+    if any(len(r) != len(rows[0]) for r in rows):
+        raise ValueError("all rows must have the same length")
+
+    # first sight of a new symbol → next free ID
+    symbol_to_id: dict[str, int] = {}
+    next_id = 1
+
+    occurrences: dict[int, list[Coordinate]] = defaultdict(list)
+
+    for r, row in enumerate(rows):
+        for c, ch in enumerate(row):
+            if ch == ".":
+                continue
+            # allocate ID lazily
+            cid = symbol_to_id.setdefault(ch, next_id)
+            if cid == next_id:
+                next_id += 1
+            occurrences[cid].append(Coordinate(r, c))
+
+    # squash to pairs, validating counts --------------------------------------
+    terminals: dict[int, tuple[Coordinate, Coordinate]] = {}
+    for cid, coords in occurrences.items():
+        if len(coords) != 2:
+            raise ValueError(
+                f"symbol '{list(symbol_to_id.keys())[list(symbol_to_id.values()).index(cid)]}' "
+                f"appears {len(coords)} times (should be exactly twice)"
+            )
+        terminals[cid] = (coords[0], coords[1])
+
+    return terminals
+
+
 class FlowFree:
     """Mutable in-memory game state for a Flow Free board."""
 
@@ -202,6 +243,9 @@ class FlowFree:
 
     def attempt_move(self, c: Coordinate, color: int) -> bool:
         """Place next segment of *color* at *c* if legal, updating heads and connecting terminals (also resetting interferences)."""
+        if self.is_solved():
+            return False
+
         color = color_of(color)
 
         if (
@@ -305,6 +349,14 @@ class FlowFree:
         return self._board.copy()
 
     @classmethod
+    def from_ascii_board(cls, data: str) -> FlowFree:
+        """Create a game instance from an ASCII board string."""
+        # Extract # of rows and columns from the str by splitting on newlines and ignoring empty lines
+        lines = [line for line in data.strip().splitlines() if line.strip()]
+        rows, cols = len(lines), len(lines[0])
+        return FlowFree(rows, cols, parse_ascii_board(data))
+
+    @classmethod
     def is_valid_board(cls, arr: np.ndarray) -> bool:
         """Return ``True`` iff *arr* is a syntactically valid Flow-Free board."""
         # ───────────────────────────── basic shape / dtype / values ─────────────────────────────
@@ -383,9 +435,6 @@ class FlowFree:
             terminals_connected = any(c["terms"] == 2 for c in comps)
 
             if bodies_total == 0:
-                # only valid start-state: two isolated terminals, no body, no head
-                if heads_total != 0:
-                    return False
                 continue
 
             # bodies present from here on
