@@ -1,8 +1,4 @@
-"""
-Solves a Flow Free board using a SAT solver via PySAT.
-
-This is used to generate synthetic boards for RL experiments.
-"""
+"""Solves a Flow Free board using a SAT solver via PySAT. Built for completeness sake."""
 
 from __future__ import annotations
 

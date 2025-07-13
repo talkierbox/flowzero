@@ -101,6 +101,10 @@ class Coordinate:
         """Return a new coordinate that is the difference of this and other."""
         return Coordinate(self.row - other.row, self.col - other.col)
 
+    def __lt__(self, other: Coordinate) -> bool:
+        """Return True if this coordinate is less than other in row-major order."""
+        return (self.row, self.col) < (other.row, other.col)
+
 
 def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]]:
     """Convert an ASCII board string into a mapping from color IDs to their terminal coordinates."""

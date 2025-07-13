@@ -1,4 +1,9 @@
 # TODO: Ensure all this is correct and up-to-date
+generation:
+  output: 
+    dir: "./flowzero_src/data/synthetic"
+  max_pairs: 12
+
 mcts:
   sims_per_move: 800
   c_puct: 1.5
