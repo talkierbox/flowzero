@@ -18,7 +18,6 @@ from util.save_util import export_ndarray
 # Base output directory and defaults
 BASE_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(get_key("generation.output.dir", "./puzzles"))
-MAX_PAIRS = int(get_key("generation.max_pairs", 3))
 
 
 def generate_hash() -> str:
@@ -42,7 +41,7 @@ def parse_args() -> argparse.Namespace:
         "-w", "--workers", type=int, default=cpu_count(), help="Number of parallel worker processes"
     )
     parser.add_argument(
-        "-t", "--terminals", type=int, default=MAX_PAIRS, help="Maximum terminal pairs per puzzle"
+        "-t", "--terminals", type=int, default=5, help="Maximum terminal pairs per puzzle"
     )
     return parser.parse_args()
 
@@ -92,9 +91,9 @@ def generate_one(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | Non
     """Generate one puzzle by carving paths algorithmically."""
     rows, cols = args.rows, args.cols
     cells = [Coordinate(r, c) for r in range(rows) for c in range(cols)]
-    pts = random.sample(cells, 2 * MAX_PAIRS)
+    pts = random.sample(cells, 2 * args.terminals)
     random.shuffle(pts)
-    pairs = [(pts[i], pts[i + MAX_PAIRS]) for i in range(MAX_PAIRS)]
+    pairs = [(pts[i], pts[i + args.terminals]) for i in range(args.terminals)]
     pairs.sort(key=lambda ab: ab[0].manhattan(ab[1]), reverse=True)
 
     occupied: set[Coordinate] = set()
@@ -109,7 +108,7 @@ def generate_one(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | Non
 def generate_one_stochastic(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | None:
     """Generate one puzzle by random terminals plus SAT solvability check."""
     rows, cols = args.rows, args.cols
-    num_pairs = random.randint(cols // 2, MAX_PAIRS)  # noqa: S311
+    num_pairs = random.randint(cols // 2, args.terminals)  # noqa: S311
 
     # avoid boards that are too dense
     if num_pairs * 2 >= (rows * cols) - 3:
@@ -137,6 +136,7 @@ def main() -> None:
 
     rows, cols = args.rows, args.cols
     num_puzzles, workers = args.num_puzzles, args.workers
+
     method = get_key("generation.method", "algorithmic")
     gen = generate_one_stochastic if method == "stochastic" else generate_one
 
