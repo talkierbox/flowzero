@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -13,6 +15,8 @@ from flowzero_src.flowfree.game import (
     head,
     terminal,
 )
+from flowzero_src.flowfree.solver import FlowFreeSATSolver
+from flowzero_src.util.save_util import import_ndarray
 
 # ────────────────────────────── Shared test data ────────────────────────────── #
 
@@ -254,3 +258,19 @@ def test_color_reset() -> None:
     ff.reset_color(2)
     assert not ff.is_color_solved(2)  # Color 2 should no longer be solved
     assert not np.array_equal(ff.board, VALID_BOARD_3x5)  # Board should be changed
+
+
+BASE = Path(__file__).resolve().parent.parent.parent
+
+SYNTH_PATH = BASE / "flowzero_src" / "data" / "synthetic"
+SYNTH_BOARDS = [import_ndarray(file) for file in SYNTH_PATH.glob("*.npy")]
+
+
+def test_synthetic_boards() -> None:
+    """Test that the synthetic boards can be read back correctly."""
+    for board in SYNTH_BOARDS:
+        assert isinstance(board, np.ndarray), "Board data should be a numpy array"
+        assert FlowFree.is_valid_board(board), "Board data should be valid"
+        game = FlowFree.from_board(board)
+        solver = FlowFreeSATSolver(game)
+        assert solver.is_solvable(), "Synthetic board should be solvable"
