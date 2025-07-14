@@ -132,6 +132,7 @@ def generate_one_stochastic(args: object) -> dict[int, tuple[Coordinate, Coordin
 
 
 def main() -> None:
+    """Main function to generate Flow Free puzzles."""
     args = parse_args()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
