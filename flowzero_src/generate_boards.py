@@ -1,4 +1,4 @@
-"""Generate Flow Free puzzles using CLI."""
+"""Generate Flow Free puzzles using CLI. WARNING: Do not seed the random number generator."""
 
 import argparse
 import heapq
@@ -19,7 +19,6 @@ from util.save_util import export_ndarray
 BASE_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(get_key("generation.output.dir", "./puzzles"))
 MAX_PAIRS = int(get_key("generation.max_pairs", 3))
-# random.seed(int(get_key("generation.seed", 42)))
 
 
 def generate_hash() -> str:
@@ -141,7 +140,7 @@ def main() -> None:
     method = get_key("generation.method", "algorithmic")
     gen = generate_one_stochastic if method == "stochastic" else generate_one
 
-    pbar = tqdm(total=num_puzzles, desc="Generating puzzles", unit="puzzle")
+    pbar = tqdm(total=num_puzzles, desc="Generating puzzles", unit="puzzle", ncols=100)
     chunksize = max(1, num_puzzles // (workers * 4))
     saved = 0
 
@@ -161,7 +160,7 @@ def main() -> None:
             export_ndarray(game.get_internal_board(), out_path, compressed=False)
 
             pbar.update(1)
-            pbar.set_postfix(saved=saved, filename=fname)
+            pbar.set_postfix(saved=saved)
 
             if saved >= num_puzzles:
                 pool.terminate()  # stop all workers
