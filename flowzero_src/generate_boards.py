@@ -10,11 +10,13 @@ from pathlib import Path
 from tqdm import tqdm
 
 from flowfree.game import Coordinate, FlowFree
+from flowfree.solver import FlowFreeSATSolver
 from util.config import get_key
 
 # Config keys:
 #   output.dir: directory for puzzles
 #   generation.max_pairs: max terminal pairs per puzzle
+#   generation.method: "stochastic" or "algorithmic" --- Algorithmic uses A* to carve paths while stochastic generates random pairs and checks solvability
 BASE = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = Path(get_key("output.dir", "./puzzles"))
 MAX_PAIRS = int(get_key("generation.max_pairs", 3))
@@ -95,6 +97,34 @@ def generate_one(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | Non
     return dict(enumerate(pairs, 1))
 
 
+def generate_one_stochastic(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | None:
+    """Generate a single Flow Free puzzle through generating random terminal pairs on boards and checking solvability."""
+    # Choose a random number of terminal pairs from cols // 2 to cols + 3
+    rows, cols = args.rows, args.cols
+    num_pairs = random.randint(cols // 2, cols + 3)  # noqa: S311
+
+    if num_pairs >= (rows * cols) - 3:
+        return None
+
+    # Randomly choose a location for each terminal pair
+    cells = [Coordinate(r, c) for r in range(rows) for c in range(cols)]
+    pts = random.sample(cells, 2 * num_pairs)
+
+    # Create the terminal dict
+    terminals = {i: (pts[i], pts[num_pairs + i]) for i in range(num_pairs)}
+
+    try:
+        solver = FlowFreeSATSolver(FlowFree(rows, cols, terminals))
+    except Exception:
+        return None  # Not solvablae or invalid board config
+
+    if not solver.is_solvable():
+        # print("Generated board is unsolvable.")
+        return None
+
+    return terminals
+
+
 def main() -> None:
     """Main function to generate Flow Free puzzles."""
     args = parse_args()
@@ -104,11 +134,21 @@ def main() -> None:
     pad = len(str(NUM_PUZZLES))
 
     puzzles = []
+
+    if get_key("generation.method", "stochastic") == "stochastic":
+        generate_one = generate_one_stochastic
+    else:
+        generate_one = generate_one
+    print("Using generation method:", get_key("generation.method", "stochastic"))
+
     with tqdm(total=NUM_PUZZLES, desc="Generating puzzles", unit="puzzle") as pbar:
+        i = 0
         while len(puzzles) < NUM_PUZZLES:
             need = NUM_PUZZLES - len(puzzles)
             with Pool(WORKERS) as pool:
                 results = pool.map(generate_one, [args] * need)
+                i += 1
+            pbar.set_postfix({"attempts": i})
             good = [r for r in results if r]
             puzzles.extend(good)
             pbar.update(len(good))
@@ -118,7 +158,7 @@ def main() -> None:
         out = (
             OUTPUT_DIR / f"synth_puzzle_{generate_hash()}_{i:0{pad}d}_{args.rows}x{args.cols}_.txt"
         )
-        out.write_text(game.get_internal_board())
+        out.write_bytes(game.get_internal_board().tobytes())
 
     print(f"Done: {NUM_PUZZLES} puzzles -> {OUTPUT_DIR}")
 

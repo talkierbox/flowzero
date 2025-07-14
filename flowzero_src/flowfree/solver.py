@@ -9,7 +9,7 @@ from pysat.card import CardEnc
 from pysat.formula import CNF, IDPool
 from pysat.solvers import Minisat22
 
-from flowzero_src.flowfree.game import (
+from .game import (
     Coordinate,
     FlowFree,
     body,
