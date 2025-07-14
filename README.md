@@ -95,13 +95,13 @@ TODO: Finish this
 
 ## Acknowledgments & References
 
-Expert Iteration: Anthony, Tian & Barber (2017)
+Expert Iteration: Anthony, Tian & Barber (2017) [Link](https://arxiv.org/abs/1705.08439)
 
-AlphaZero: Silver et al. (2017)
+AlphaZero: Silver et al. (2017) [Link](https://arxiv.org/abs/1712.01815)
 
 PUCT-MCTS: Coulom (2006); Kocsis & Szepesvári (2006)
 
-Gymnasium: Brockman et al. (2016)
+Gymnasium: Towers et al. (2024) [Link](https://arxiv.org/abs/2407.17032)
 
 Special Thanks: [Matt Zucker](https://github.com/mzucker), [Ben Torvaney](https://github.com/Torvaney), [Loki Chow](https://github.com/lohchness), and contributors
 

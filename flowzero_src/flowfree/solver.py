@@ -66,7 +66,7 @@ def find_cycle(edges: list[Edge], used_edges: set[int]) -> list[int]:
 
 
 class FlowFreeSATSolver:
-    """Compile a FlowFree puzzle to CNF and solve it with PySAT, banning loops incrementally."""
+    """Compile a FlowFree puzzle to CNF and solve it with PySAT, banning non-terminal touching loops incrementally."""
 
     def __init__(self, game: FlowFree) -> None:
         """Initialize the solver with a FlowFree game instance."""

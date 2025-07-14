@@ -1,4 +1,4 @@
-"""Generate Flow Free puzzles using CLI with A* carving and progress bars."""
+"""Generate Flow Free puzzles using CLI."""
 
 import argparse
 import heapq
@@ -7,19 +7,23 @@ from datetime import datetime
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
+# Config keys:
+#   output.dir: directory for puzzles
+#   generation.max_pairs: max terminal pairs per puzzle
+#   generation.method: "stochastic" or "algorithmic"
+#      - Algorithmic uses A* to carve paths while stochastic generates random pairs and checks solvability
+#      - From my personal experience, the stochastic method runs faster on my machine... but it could also be a skill issue on my part
 from tqdm import tqdm
 
 from flowfree.game import Coordinate, FlowFree
 from flowfree.solver import FlowFreeSATSolver
 from util.config import get_key
 
-# Config keys:
-#   output.dir: directory for puzzles
-#   generation.max_pairs: max terminal pairs per puzzle
-#   generation.method: "stochastic" or "algorithmic" --- Algorithmic uses A* to carve paths while stochastic generates random pairs and checks solvability
 BASE = Path(__file__).resolve().parent.parent
-OUTPUT_DIR = Path(get_key("output.dir", "./puzzles"))
+OUTPUT_DIR = Path(get_key("generation.output.dir", "./puzzles"))
 MAX_PAIRS = int(get_key("generation.max_pairs", 3))
+
+random.seed(get_key("generation.seed", 42))
 
 
 def generate_hash() -> str:
@@ -34,6 +38,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-c", "--cols", type=int, required=True)
     parser.add_argument("-n", "--num-puzzles", type=int, required=True)
     parser.add_argument("-w", "--workers", type=int, default=cpu_count())
+    parser.add_argument(
+        "-t",
+        "--terminals",
+        type=int,
+        default=MAX_PAIRS,
+        help="Maximum number of terminal pairs per puzzle (3 implies 3 colors in the puzzle)",
+    )
     return parser.parse_args()
 
 
@@ -98,12 +109,14 @@ def generate_one(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | Non
 
 
 def generate_one_stochastic(args: object) -> dict[int, tuple[Coordinate, Coordinate]] | None:
-    """Generate a single Flow Free puzzle through generating random terminal pairs on boards and checking solvability."""
+    """Generate a single Flow Free puzzle through generating random terminal pairs on boards and checking solvability via SAT."""
     # Choose a random number of terminal pairs from cols // 2 to cols + 3
     rows, cols = args.rows, args.cols
     num_pairs = random.randint(cols // 2, cols + 3)  # noqa: S311
 
-    if num_pairs >= (rows * cols) - 3:
+    # Heuristic to end early if too many pairs
+    # This is to avoid generating boards that are too dense to be solvable
+    if num_pairs * 2 >= (rows * cols) - 3:
         return None
 
     # Randomly choose a location for each terminal pair
@@ -126,41 +139,38 @@ def generate_one_stochastic(args: object) -> dict[int, tuple[Coordinate, Coordin
 
 
 def main() -> None:
-    """Main function to generate Flow Free puzzles."""
+    """Puzzle generation with CLI."""
     args = parse_args()
-    ROWS, COLS, NUM_PUZZLES, WORKERS = args.rows, args.cols, args.num_puzzles, args.workers  # noqa: N806
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    pad = len(str(NUM_PUZZLES))
+    ROWS, COLS, NUM_PUZZLES, WORKERS = (args.rows, args.cols, args.num_puzzles, args.workers)  # noqa N806
 
+    # pick the right generator
+    gen = generate_one_stochastic if get_key("generation.method") == "stochastic" else generate_one
+
+    tasks = [args] * NUM_PUZZLES
     puzzles = []
 
-    if get_key("generation.method", "stochastic") == "stochastic":
-        generate_one = generate_one_stochastic
-    else:
-        generate_one = generate_one
-    print("Using generation method:", get_key("generation.method", "stochastic"))
+    pbar = tqdm(total=NUM_PUZZLES, desc="Generating puzzles", unit="puzzle")
+    # e.g. chunksize= max(1, NUM_PUZZLES // (WORKERS * 4))
+    chunksize = max(1, NUM_PUZZLES // (WORKERS * 4))
 
-    with tqdm(total=NUM_PUZZLES, desc="Generating puzzles", unit="puzzle") as pbar:
-        i = 0
-        while len(puzzles) < NUM_PUZZLES:
-            need = NUM_PUZZLES - len(puzzles)
-            with Pool(WORKERS) as pool:
-                results = pool.map(generate_one, [args] * need)
-                i += 1
-            pbar.set_postfix({"attempts": i})
-            good = [r for r in results if r]
-            puzzles.extend(good)
-            pbar.update(len(good))
+    with Pool(WORKERS) as pool:
+        for result in pool.imap_unordered(gen, tasks, chunksize=chunksize):
+            if result:
+                puzzles.append(result)
+                pbar.update(1)
+    pbar.close()
 
-    for i, terms in enumerate(tqdm(puzzles[:NUM_PUZZLES], desc="Writing puzzles", unit="file"), 1):
+    # write out puzzles…
+    for idx, terms in enumerate(puzzles, 1):
         game = FlowFree(ROWS, COLS, terms)
         out = (
-            OUTPUT_DIR / f"synth_puzzle_{generate_hash()}_{i:0{pad}d}_{args.rows}x{args.cols}_.txt"
+            OUTPUT_DIR
+            / f"synth_puzzle_{generate_hash()}_{idx:0{len(str(NUM_PUZZLES))}d}_{ROWS}x{COLS}_.txt"
         )
         out.write_bytes(game.get_internal_board().tobytes())
 
-    print(f"Done: {NUM_PUZZLES} puzzles -> {OUTPUT_DIR}")
+    print(f"Done: {len(puzzles)} puzzles → {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":
