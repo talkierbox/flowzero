@@ -101,6 +101,10 @@ class Coordinate:
         """Return a new coordinate that is the difference of this and other."""
         return Coordinate(self.row - other.row, self.col - other.col)
 
+    def __lt__(self, other: Coordinate) -> bool:
+        """Return True if this coordinate is less than other in row-major order."""
+        return (self.row, self.col) < (other.row, other.col)
+
 
 def parse_ascii_board(board_str: str) -> dict[int, tuple[Coordinate, Coordinate]]:
     """Convert an ASCII board string into a mapping from color IDs to their terminal coordinates."""
@@ -475,3 +479,49 @@ class FlowFree:
     def __repr__(self) -> str:
         """Return a string representation of the FlowFree instance."""
         return f"FlowFree(rows={self.rows}, cols={self.cols})"
+
+    # Thanks ChatGPT for this method!
+    def display(self) -> None:
+        """Print out the board in a colored ASCII format."""
+        palette = [
+            196,  # bright red
+            46,  # bright green
+            21,  # bright blue
+            226,  # yellow
+            201,  # magenta
+            51,  # cyan
+            208,  # orange
+            93,  # purple
+            45,  # teal
+            129,  # violet
+            220,  # amber
+            118,  # lime
+            154,  # olive
+            207,  # light pink
+            171,  # light magenta
+            99,  # mid-purple
+            165,  # lavender
+            57,  # deep teal
+            33,  # navy
+            19,  # dark blue
+            160,  # deep red
+            124,  # maroon
+            88,  # brown
+            15,  # white
+            244,  # light gray
+        ]
+        reset = "\033[0m"
+
+        for r in range(self.rows):
+            line = ""
+            for c in range(self.cols):
+                v = self._tile(Coordinate(r, c))
+                if is_empty(v):
+                    line += ". "
+                else:
+                    col = color_of(v)
+                    code = palette[(col - 1) % len(palette)]
+                    esc = f"\033[38;5;{code}m"
+                    ch = "v " if is_terminal(v) else "+ " if r % 2 == 0 else "- "
+                    line += f"{esc}{ch}{reset}"
+            print(line)

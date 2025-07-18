@@ -1,8 +1,4 @@
-"""
-Solves a Flow Free board using a SAT solver via PySAT.
-
-This is used to generate synthetic boards for RL experiments.
-"""
+"""Solves a Flow Free board using a SAT solver via PySAT. Built for completeness sake."""
 
 from __future__ import annotations
 
@@ -13,7 +9,7 @@ from pysat.card import CardEnc
 from pysat.formula import CNF, IDPool
 from pysat.solvers import Minisat22
 
-from flowzero_src.flowfree.game import (
+from .game import (
     Coordinate,
     FlowFree,
     body,
@@ -70,7 +66,7 @@ def find_cycle(edges: list[Edge], used_edges: set[int]) -> list[int]:
 
 
 class FlowFreeSATSolver:
-    """Compile a FlowFree puzzle to CNF and solve it with PySAT, banning loops incrementally."""
+    """Compile a FlowFree puzzle to CNF and solve it with PySAT, banning non-terminal touching loops incrementally."""
 
     def __init__(self, game: FlowFree) -> None:
         """Initialize the solver with a FlowFree game instance."""
