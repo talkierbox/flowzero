@@ -58,13 +58,15 @@ class TreeNode:
         return f"TreeNode(data={self.data}, num_children={self.get_num_children()})"
 
     def __eq__(self, other: object) -> bool:
-        """Check equality based on data and children."""
+        """Check equality based on only data and children."""
         if not isinstance(other, TreeNode):
             return False
         return (
             self.data == other.data
             and self.get_num_children() == other.get_num_children()
-            and all(child in other.children for child in self.children)
+            and all(
+                c == oc for c, oc in zip(self.get_children(), other.get_children(), strict=True)
+            )
         )
 
     def __iter__(self) -> Iterable[TreeNode]:
