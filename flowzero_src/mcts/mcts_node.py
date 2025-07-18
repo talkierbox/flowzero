@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from flowzero_src.util.tree_node import TreeNode
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class MCTSNodeData:
@@ -15,9 +20,14 @@ class MCTSNodeData:
 class MCTSNode(TreeNode):
     """A node in the Monte-Carlo Tree Search (MCTS) tree."""
 
-    def __init__(self, data: MCTSNodeData, parent: MCTSNode | None = None):
+    def __init__(
+        self,
+        data: MCTSNodeData,
+        children: Iterable[MCTSNode] | None,
+        parent: MCTSNode | None = None,
+    ):
         """Initialize the MCTS node with data and optional parent."""
-        super().__init__(data, parent=parent)
+        super().__init__(data, children=list(children) if children else [], parent=parent)
         self.visits = 0  # Number of times this node has been visited
         self.data: MCTSNodeData = data
 
