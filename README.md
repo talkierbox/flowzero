@@ -61,27 +61,20 @@ This self-play framework yields continual policy improvement without human-label
 ```
 
 
-Create and activate a Python 3.8+ virtual environment:
-
+Create and activate a Python 3.10+ virtual environment (Python 3.13 recommended):
+```
 python3 -m venv venv
 source venv/bin/activate
-
-Install dependencies:
-
-pip install -r ../requirements.txt
+pip install -r requirements.txt
+```
 
 ## Usage
 
 Train or evaluate the agent:
 
 ```bash
-python train.py \
-  --board-size 9 \
-  --simulations-per-move 800 \
-  --epochs 20
+# TODO: Train script command here
 ```
-
-Inspect all options: `python train.py --help`
 
 # Development Details
 

@@ -1,4 +1,4 @@
-"""Solves a Flow Free board using a SAT solver via PySAT. Built for completeness sake."""
+"""Solves a Flow Free board using a SAT solver via PySAT. Built for generating synthetic data."""
 
 from __future__ import annotations
 
@@ -65,6 +65,7 @@ def find_cycle(edges: list[Edge], used_edges: set[int]) -> list[int]:
     return []
 
 
+# Special thanks to this article for seeding this implementation: https://torvaney.github.io/projects/flow-solver.html
 class FlowFreeSATSolver:
     """Compile a FlowFree puzzle to CNF and solve it with PySAT, banning non-terminal touching loops incrementally."""
 
