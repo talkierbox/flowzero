@@ -4,10 +4,9 @@ generation:
     dir: "./flowzero_src/data/synthetic" # Relative to project root
   method: "stochastic" # "stochastic" or "algorithmic" --- stochastic tends to be better and faster
 
-mcts:
+mcgs:
   sims_per_move: 800
   c_puct: 1.5
-  dirichlet_alpha: 0.30
 
 net:
   channels: 64

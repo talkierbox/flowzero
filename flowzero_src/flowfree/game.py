@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -17,16 +18,23 @@ HEAD_OFFSET: int = 32  # codes from >= 33 mark head positions
 
 EMPTY_CODE: np.int8 = np.int8(0)
 
+type EncodedBoard = tuple[tuple[int, ...], bytes]
 
-# Make this a data class
+
+class ActionTypes(Enum):
+    """Enum for action types in Flow Free game."""
+
+    PLACE = "place"  # Place a segment of a color
+    RESET = "reset"  # Reset a color's path
+
+
 @dataclass(frozen=True, slots=True)
-class FlowFreeValidMoves:
-    """Data class to hold valid moves for Flow Free game."""
+class Action:
+    """Data class to represent an action in the Flow Free game."""
 
-    placement_moves: builtins.frozenset[
-        tuple[Coordinate, int]
-    ]  # Valid placements as (coordinate, color) pairs
-    color_resets: builtins.frozenset[int]  # Colors that can be reset
+    action_type: ActionTypes
+    color: int
+    coordinate: Coordinate | None = None
 
 
 def body(c: int) -> np.int8:
@@ -256,15 +264,32 @@ class FlowFree:
                     if self.is_legal_move(n, color):
                         yield n, color
 
-    def get_all_valid_moves(self) -> FlowFreeValidMoves:
+    def get_all_valid_moves(self) -> set[Action]:
         """Return a list of all valid moves."""
-        placement_moves = frozenset(self.yield_valid_placements())
-        color_resets = frozenset(
+        placement_moves = set(self.yield_valid_placements())
+        color_resets = {
             c
             for c in range(1, len(self._terminals.keys()) + 1)
             if (self.is_color_solved(c) or self._heads.get(c, None) is not None)
-        )
-        return FlowFreeValidMoves(placement_moves, color_resets)
+        }
+
+        return_set = set()
+        for placement_move in placement_moves:
+            return_set.add(Action(ActionTypes.PLACE, placement_move[1], placement_move[0]))
+        for color in color_resets:
+            return_set.add(Action(ActionTypes.RESET, color))
+        return return_set
+
+    def attempt_action(self, action: Action, in_place: bool = True) -> FlowFree | None:
+        """Attempt to perform the given action on the game board."""
+        game_to_play = self if in_place else FlowFree.from_board(self.get_internal_board())
+
+        if action.action_type == ActionTypes.PLACE:
+            game_to_play.attempt_move(action.coordinate, action.color)
+            return game_to_play if not in_place else None
+        elif action.action_type == ActionTypes.RESET:
+            game_to_play.reset_color(action.color)
+            return game_to_play if not in_place else None
 
     def attempt_move(self, c: Coordinate, color: int) -> bool:
         """Try placing the next segment of the given color at c. Returns True if the move was applied (including completing a path)."""
@@ -374,6 +399,7 @@ class FlowFree:
         rows, cols = len(lines), len(lines[0])
         return FlowFree(rows, cols, parse_ascii_board(data))
 
+    # TODO: Update this so that two adjacent terminals are not allowed (?)
     @classmethod
     def is_valid_board(cls, arr: np.ndarray) -> bool:
         """Return True if arr is a valid Flow Free board."""
@@ -566,3 +592,27 @@ class FlowFree:
                     ch = "v " if is_terminal(v) else "+ " if r % 2 == 0 else "- "
                     line += f"{esc}{ch}{reset}"
             print(line)
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality based on the board state."""
+        if not isinstance(other, FlowFree):
+            return NotImplemented
+        return np.array_equal(self._board, other._board)
+
+    def encode_board(self: np.ndarray) -> EncodedBoard:
+        """Pack shape + data into ONE hashable object suitable as dict key.  Works with int8 (negative values fine) and any dimensionality."""
+        if self.dtype != np.int8:
+            raise TypeError("dtype must be int8")
+        return self.shape, self.tobytes()  # (<shape tuple>, <bytes>)
+
+    @classmethod
+    def from_encoded_board(cls, key: EncodedBoard) -> FlowFree:
+        """Create a FlowFree instance from an encoded board key."""
+        board = _decode_board(key)
+        return cls.from_board(board)
+
+
+def _decode_board(key: EncodedBoard) -> np.ndarray:
+    """Invert encode_board and return a writable copy of the board."""
+    shape, buf = key
+    return np.frombuffer(buf, dtype=np.int8).reshape(shape).copy()

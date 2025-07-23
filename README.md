@@ -1,7 +1,7 @@
 [![tests](https://github.com/talkierbox/flowzero/actions/workflows/ci.yml/badge.svg)](https://github.com/talkierbox/flowzero/actions)
 # FlowZero
 
-FlowZero is a search-augmented reinforcement-learning agent, inspired by AlphaZero, designed to solve _Flow Free_ puzzles from first principles. It combines a hand-rolled Monte Carlo Tree Search (PUCT) with a lightweight ResNet policy-value network in an Expert-Iteration loop, while relying on established libraries only for tensor operations, logging, and continuous integration.
+FlowZero is a search-augmented reinforcement-learning agent, inspired by AlphaZero, designed to solve _Flow Free_ puzzles from first principles. It combines a hand-rolled Monte Carlo Graph Search with a lightweight ResNet policy-value network in an Expert-Iteration loop, while relying on established libraries only for tensor operations, logging, and continuous integration.
 
 ---
 
@@ -23,10 +23,10 @@ FlowZero is a search-augmented reinforcement-learning agent, inspired by AlphaZe
 Flow Free puzzles are cast as deterministic, episodic Markov Decision Processes (MDPs). Training proceeds in repeated Expert-Iteration cycles:
 
 1. **Planning (Expert):**  
-   PUCT-MCTS runs a fixed number of simulations per move, using the current ResNet’s policy and value estimates.  
+   MCGS runs a fixed number of simulations per move, using the current ResNet’s policy and value estimates.  
 2. **Learning (Apprentice):**  
    A 6-block ResNet is trained to  
-   - imitate the tree’s move distribution (cross-entropy loss), and  
+   - imitate the graph's move distribution (cross-entropy loss), and  
    - predict final outcomes (mean-squared error loss).  
 
 This self-play framework yields continual policy improvement without human-labeled data.
@@ -79,9 +79,9 @@ Train or evaluate the agent:
 # Development Details
 
 Expert-Iteration Loop
-- Expert (Planning): PUCT-MCTS with a configurable number of simulations per move (default: 800).
+- Expert (Planning): MCGS with a configurable number of simulations per move (default: 800).
 - Apprentice (Learning): 6-block ResNet optimized via
-- cross-entropy on MCTS distributions
+- cross-entropy on MCGS distributions
 - mean-squared error on game outcomes
 
 TODO: Finish this
@@ -91,8 +91,6 @@ TODO: Finish this
 Expert Iteration: Anthony, Tian & Barber (2017) [Link](https://arxiv.org/abs/1705.08439)
 
 AlphaZero: Silver et al. (2017) [Link](https://arxiv.org/abs/1712.01815)
-
-PUCT-MCTS: Coulom (2006); Kocsis & Szepesvári (2006)
 
 Gymnasium: Towers et al. (2024) [Link](https://arxiv.org/abs/2407.17032)
 
