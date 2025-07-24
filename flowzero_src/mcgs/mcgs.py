@@ -1,6 +1,5 @@
 """Monte-Carlo Graph Search (MCGS) implementation."""
 
-# TODO: Maintain a transposition table to avoid duplicate states
 # No longer a naive tree search
 from __future__ import annotations
 

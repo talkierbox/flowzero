@@ -479,6 +479,19 @@ class FlowFree:
                     if total_heads != 1:
                         return False
 
+        # Ensure no terminals of the same color are adjacent to each other
+        for r in range(n_rows):
+            for c in range(n_cols):
+                if is_terminal(int(arr[r, c])):
+                    color = color_of(int(arr[r, c]))
+                    for n in Coordinate(r, c).neighbors4():
+                        if (
+                            in_bounds(n)
+                            and is_terminal(int(arr[n.row, n.col]))
+                            and color_of(int(arr[n.row, n.col])) == color
+                        ):
+                            return False
+
         return True
 
     @classmethod
