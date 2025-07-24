@@ -6,7 +6,9 @@ generation:
 
 mcgs:
   sims_per_move: 800
-  c_puct: 1.5
+  uct_constant: 1.5
+  verbose: True
+  max_rollout_steps: 2000
 
 net:
   channels: 64
@@ -24,6 +26,3 @@ env:
   seed: 42
   render: false
   use_cache: true
-
-logging:
-  verbose: true

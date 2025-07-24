@@ -10,7 +10,7 @@ CONFIG_PATH = BASE.parent / "config.yaml"
 config: dict = yaml.safe_load(CONFIG_PATH.read_text())
 
 
-def get_key(key: str, default: str | None = None) -> str | None:
+def get_key(key: str, default: str | None = None) -> object | None:
     """
     Get a configuration value by key. Search through nested keys using dot notation.
 
