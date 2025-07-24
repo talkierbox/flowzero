@@ -8,6 +8,7 @@ import random
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+import numpy as np
 from tqdm import tqdm
 
 from flowzero_src.flowfree.game import ActionTypes, FlowFree
@@ -35,7 +36,7 @@ class EdgeData:
     visits: int = 0
 
 
-# TODO: Finish this implementation
+# TODO: Testing
 class MCGS:
     """Monte-Carlo Graph Search (MCGS) class for Flow Free puzzles."""
 
@@ -57,10 +58,10 @@ class MCGS:
         if verbose:
             print("Starting MCGS process...")
             for _ in tqdm(range(self.simulations_per_move), desc="Simulating moves", unit="simuls"):
-                self._simulate()
+                self._simulate(self.root_key)
         else:
             for _ in range(self.simulations_per_move):
-                self._simulate()
+                self._simulate(self.root_key)
 
         # Select the best action based on visits
         root_state = self._get_state_data(self.root_key)
@@ -118,13 +119,18 @@ class MCGS:
             if next_key in path_states:  # Avoid a cycle!
                 # Mark edge as a dead-end
                 selected_edge.visits += 1
+                selected_edge.value += 0.0
+                path_edges.append((cur_key, selected_action))
                 break
 
             if (
                 selected_edge.child_key is None
             ):  # This is the first time this edge has been explored
                 selected_edge.child_key = next_key
-                self.state_table.setdefault(next_key, StateData())
+
+                if next_key not in self.state_table:  # Ensure the next state is initialized
+                    self.state_table[next_key] = StateData()
+
                 path_edges.append((cur_key, selected_action))
                 cur_board, cur_key = next_board, next_key  # Move to the next state
                 path_states.append(cur_key)
@@ -150,14 +156,14 @@ class MCGS:
         return
 
     def _rollout(
-        self, board: EncodedBoard, max_steps: int = get_key("mcgs.max_rollout_steps", 2000)
+        self, board: FlowFree, max_steps: int = get_key("mcgs.max_rollout_steps", 2000)
     ) -> float:
         """Perform a rollout from the given board state and return the reward."""
-        cur_board = FlowFree.from_encoded_board(board)
+        cur_board = board
         steps = 0
 
         while not cur_board.is_solved() and steps < max_steps:
-            valid_moves = cur_board.get_all_valid_moves()
+            valid_moves: set[Action] = cur_board.get_all_valid_moves()
             if not valid_moves:
                 break
             else:
@@ -172,7 +178,7 @@ class MCGS:
                         k=1,
                     )[0]
                 else:  # Only one type of action available
-                    action = random.choice(valid_moves)  # noqa: S311
+                    action = random.choice(list(valid_moves))  # noqa: S311
                 cur_board.attempt_action(action, in_place=True)
             steps += 1
 
@@ -181,10 +187,17 @@ class MCGS:
 
     def _reward_func(self, board: FlowFree) -> float:
         """Calculate the reward for the given board state. Returns a number between 0 and 1."""
-        base_reward = 0.5
-        colors_done = sum(1 for color in board.colors if board.is_color_solved(color))
-        return base_reward * (colors_done / len(board._terminals.keys())) + (1 - base_reward) * (
-            1 if board.is_solved() else 0
+        colors_in_board: set[int] = set(board._heads.keys())
+
+        if board.is_solved():
+            return 1.0
+
+        # return 0.2 * (# tiles nonempty / # tiles) + 0.6 * (# colors solved / # colors)
+        num_solved_colors = sum(1 for color in colors_in_board if board.is_color_solved(color))
+        num_nonempty_tiles = int(np.count_nonzero(board._board))
+        total_tiles = board.rows * board.cols
+        return 0.2 * (num_nonempty_tiles / total_tiles) + 0.50 * (
+            num_solved_colors / len(colors_in_board) if colors_in_board else 0
         )
 
     def _get_state_data(self, board_state: EncodedBoard) -> StateData:
@@ -194,7 +207,13 @@ class MCGS:
         return self.state_table[board_state]
 
     def _uct(
-        self, parent_state: StateData, edge: EdgeData, c: float = get_key("mcgs.uct_constant")
+        self,
+        parent_state: StateData,
+        edge: EdgeData,
+        c: float = get_key("mcgs.uct_constant", 1.414),
     ) -> float:
         """Calculate the Upper Confidence Bound for the given state and edge."""
-        return (edge.value / edge.visits) + c * (math.log(parent_state.visits) / edge.visits) ** 0.5
+        assert edge.visits > 0, "Edge visits must be greater than zero for UCT calculation"
+        return (edge.value / edge.visits) + c * (
+            math.log(parent_state.visits + 1e-9) / edge.visits
+        ) ** 0.5
