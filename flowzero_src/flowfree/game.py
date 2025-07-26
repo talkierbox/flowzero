@@ -180,6 +180,7 @@ class FlowFree:
         self._board: np.ndarray = np.zeros((rows, cols), dtype=np.int8)
         self._heads: dict[int, Coordinate | None] = dict.fromkeys(terminals)
         self._terminals = terminals
+        self._colors: frozenset[int] = frozenset(terminals.keys())
 
         # place the terminal codes on the board
         for color, (a, b) in terminals.items():
@@ -609,14 +610,14 @@ class FlowFree:
     def __eq__(self, other: object) -> bool:
         """Check equality based on the board state."""
         if not isinstance(other, FlowFree):
-            return NotImplemented
+            return False
         return np.array_equal(self._board, other._board)
 
-    def encode_board(self: np.ndarray) -> EncodedBoard:
+    def encode_board(self) -> EncodedBoard:
         """Pack shape + data into ONE hashable object suitable as dict key.  Works with int8 (negative values fine) and any dimensionality."""
-        if self.dtype != np.int8:
+        if self._board.dtype != np.int8:
             raise TypeError("dtype must be int8")
-        return self.shape, self.tobytes()  # (<shape tuple>, <bytes>)
+        return self._board.shape, self._board.tobytes()  # (<shape tuple>, <bytes>)
 
     @classmethod
     def from_encoded_board(cls, key: EncodedBoard) -> FlowFree:

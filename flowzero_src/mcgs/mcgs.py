@@ -17,6 +17,8 @@ from flowzero_src.util.config import get_key
 if TYPE_CHECKING:
     from flowzero_src.flowfree.game import Action, EncodedBoard
 
+random.seed(get_key("mcgs.seed", 42))  # Seed for reproducibility
+
 
 @dataclass(frozen=False, slots=True)
 class StateData:
@@ -165,7 +167,7 @@ class MCGS:
         while not cur_board.is_solved() and steps < max_steps:
             valid_moves: set[Action] = cur_board.get_all_valid_moves()
             if not valid_moves:
-                break
+                break  # This shouldn't really happen though since you can always reset a completed color
             else:
                 action: Action = None
                 pl_actions = {move for move in valid_moves if move.action_type == ActionTypes.PLACE}
@@ -187,16 +189,20 @@ class MCGS:
 
     def _reward_func(self, board: FlowFree) -> float:
         """Calculate the reward for the given board state. Returns a number between 0 and 1."""
-        colors_in_board: set[int] = set(board._heads.keys())
+        colors_in_board: frozenset[int] = board._colors
 
         if board.is_solved():
             return 1.0
 
         # return 0.2 * (# tiles nonempty / # tiles) + 0.6 * (# colors solved / # colors)
         num_solved_colors = sum(1 for color in colors_in_board if board.is_color_solved(color))
-        num_nonempty_tiles = int(np.count_nonzero(board._board))
-        total_tiles = board.rows * board.cols
-        return 0.2 * (num_nonempty_tiles / total_tiles) + 0.50 * (
+        num_nonempty_tiles = int(np.count_nonzero(board._board)) - (
+            2 * len(colors_in_board)
+        )  # Exclude terminal tiles
+        total_tiles = (board.rows * board.cols) - (
+            2 * len(colors_in_board)
+        )  # Exclude terminal tiles
+        return 0.15 * (num_nonempty_tiles / total_tiles) + 0.45 * (
             num_solved_colors / len(colors_in_board) if colors_in_board else 0
         )
 

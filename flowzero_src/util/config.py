@@ -27,6 +27,7 @@ def get_key(key: str, default: str | None = None) -> object | None:
         if isinstance(value, dict) and k in value:
             value = value[k]
         else:
+            print("[WARNING] Key not found: ", key)
             return default  # Return default if key is not found
     return value
 
