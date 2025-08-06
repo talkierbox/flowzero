@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 from tqdm import tqdm
 
-from flowzero_src.flowfree.game import ActionTypes, FlowFree
+from flowzero_src.flowfree.game import Action, ActionTypes, FlowFree
 from flowzero_src.util.config import get_key
 
 if TYPE_CHECKING:
-    from flowzero_src.flowfree.game import Action, EncodedBoard
+    from flowzero_src.flowfree.game import EncodedBoard
 
 random.seed(get_key("mcgs.seed", 42))  # Seed for reproducibility
 
@@ -38,25 +38,31 @@ class EdgeData:
     visits: int = 0
 
 
-# TODO: Testing
 class MCGS:
     """Monte-Carlo Graph Search (MCGS) class for Flow Free puzzles."""
 
     def __init__(
-        self, game: FlowFree, simulations_per_move: int = get_key("mcgs.sims_per_move", 100)
+        self,
+        game: FlowFree,
+        simulations_per_move: int = get_key("mcgs.sims_per_move", 100),
     ):
-        """Initialize the MCGS with a game instance and number of simulations per move."""
-        self.root_key: EncodedBoard = game.encode_board()
+        """Initialize the MCGS with a game state and number of simulations per move."""
+        self.current_game: FlowFree = game
         self.simulations_per_move = simulations_per_move
         self.state_table: dict[EncodedBoard, StateData] = {}  # Maps board hash to state data
         self.edge_table: dict[
             tuple[EncodedBoard, Action], EdgeData
         ] = {}  # Maps (board hash, action) to edge data
 
-        self.state_table[self.root_key] = StateData()  # Initialize the root state data
+        # Initialize root state
+        self.root_key: EncodedBoard = game.encode_board()
+        self.state_table[self.root_key] = StateData()
 
-    def start(self, verbose: bool = get_key("mcgs.verbose", False)) -> Action:
-        """Start the MCGS process and return the best action."""
+    def get_best_action(self, verbose: bool = get_key("mcgs.verbose", False)) -> Action | None:
+        """Get the best action for the current game state."""
+        if self.current_game.is_solved():
+            return None
+
         if verbose:
             print("Starting MCGS process...")
             for _ in tqdm(range(self.simulations_per_move), desc="Simulating moves", unit="simuls"):
@@ -67,6 +73,9 @@ class MCGS:
 
         # Select the best action based on visits
         root_state = self._get_state_data(self.root_key)
+        if not root_state.children:
+            return None
+
         best_action = max(
             root_state.children.items(),
             key=lambda item: item[1].visits,
@@ -77,6 +86,45 @@ class MCGS:
             print(f"Best action: {best_action}")
 
         return best_action
+
+    def play_game(
+        self,
+        max_moves: int = get_key("mcgs.max_game_moves", 1000),
+        verbose: bool = get_key("mcgs.verbose", False),
+    ) -> tuple[FlowFree, list[Action], bool]:
+        """Play a complete game using MCGS. Returns (final_game, move_history, solved)."""
+        # Make a copy of the game to avoid modifying the original
+        current_game = FlowFree.from_board(self.current_game.get_internal_board())
+        move_history: list[Action] = []
+
+        for move_count in range(max_moves):
+            if current_game.is_solved():
+                if verbose:
+                    print(f"Game solved in {move_count} moves!")
+                return current_game, move_history, True
+
+            # Create a new MCGS instance for the current state
+            mcgs_for_move = MCGS(current_game, self.simulations_per_move)
+            action = mcgs_for_move.get_best_action(
+                verbose=verbose and move_count < 5
+            )  # Only verbose for first few moves
+
+            if action is None:
+                if verbose:
+                    print(f"No valid actions available at move {move_count}")
+                break
+
+            # Apply the action
+            current_game.attempt_action(action, in_place=True)
+            move_history.append(action)
+
+            if verbose and move_count < 10:  # Show first 10 moves
+                print(f"Move {move_count + 1}: {action}")
+
+        if verbose:
+            print(f"Game ended after {len(move_history)} moves. Solved: {current_game.is_solved()}")
+
+        return current_game, move_history, current_game.is_solved()
 
     def _simulate(self, start_key: EncodedBoard) -> None:
         """Run a single simulation of the MCGS."""

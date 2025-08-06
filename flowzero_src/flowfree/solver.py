@@ -136,7 +136,7 @@ class FlowFreeSATSolver:
                     # re-solve with the new bans
                     continue
 
-                # no more free cycles — decode and verify
+                # no more free cycles - decode and verify
                 arr = self._model_to_board(model)
                 if not FlowFree.is_valid_board(arr):
                     raise ValueError("SAT model did not yield a valid Flow Free board.")
