@@ -128,8 +128,8 @@ class TestMCGSFullGame:
 
     def test_play_game_medium_solvable(self, medium_game: FlowFree) -> None:
         """Test playing a medium solvable game."""
-        mcgs = MCGS(medium_game, simulations_per_move=30)
-        final_game, move_history, solved = mcgs.play_game(max_moves=20)
+        mcgs = MCGS(medium_game, simulations_per_move=100)
+        final_game, move_history, solved = mcgs.play_game(max_moves=30)
 
         assert isinstance(final_game, FlowFree)
         assert isinstance(move_history, list)
@@ -259,7 +259,9 @@ class TestMCGSEdgeCases:
         # If we get here, cycle detection worked
         assert True
 
-    def test_mcgs_verbose_output(self, simple_game: FlowFree, capsys) -> None:
+    def test_mcgs_verbose_output(
+        self, simple_game: FlowFree, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test MCGS verbose output."""
         mcgs = MCGS(simple_game, simulations_per_move=5)
 

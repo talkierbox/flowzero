@@ -205,51 +205,81 @@ class MCGS:
         # Done
         return
 
+    """ 
+    TODO: Fix looping issue
+    Action(action_type=<ActionTypes.PLACE: 'place'>, color=3, coordinate=Coordinate(row=2, col=1))
+    Action(action_type=<ActionTypes.PLACE: 'place'>, color=3, coordinate=Coordinate(row=1, col=1))
+    Action(action_type=<ActionTypes.PLACE: 'place'>, color=3, coordinate=Coordinate(row=0, col=1))
+    Action(action_type=<ActionTypes.PLACE: 'place'>, color=3, coordinate=Coordinate(row=0, col=2))
+    Action(action_type=<ActionTypes.PLACE: 'place'>, color=3, coordinate=Coordinate(row=1, col=2))
+    Action(action_type=<ActionTypes.RESET: 'reset'>, color=3, coordinate=None)
+
+    x 10
+    """
+
     def _rollout(
         self, board: FlowFree, max_steps: int = get_key("mcgs.max_rollout_steps", 2000)
     ) -> float:
         """Perform a rollout from the given board state and return the reward."""
         cur_board = board
         steps = 0
+        consecutive_resets = 0
+        max_consecutive_resets = 0
 
         while not cur_board.is_solved() and steps < max_steps:
             valid_moves: set[Action] = cur_board.get_all_valid_moves()
             if not valid_moves:
-                break  # This shouldn't really happen though since you can always reset a completed color
-            else:
-                pl_actions = [move for move in valid_moves if move.action_type == ActionTypes.PLACE]
-                rs_actions = [move for move in valid_moves if move.action_type == ActionTypes.RESET]
+                break
 
-                # Prefer PLACE actions (99%) over RESET actions (1%)
-                if pl_actions and rs_actions and random.random() > 0.01:  # noqa: S311
+            pl_actions = [move for move in valid_moves if move.action_type == ActionTypes.PLACE]
+            rs_actions = [move for move in valid_moves if move.action_type == ActionTypes.RESET]
+
+            # Action selection
+            if not pl_actions:
+                action = random.choice(list(valid_moves))  # noqa: S311
+            elif not rs_actions:
+                action = random.choice(pl_actions)  # noqa: S311
+            else:
+                # Avoid too many consecutive resets
+                if (
+                    consecutive_resets >= 3 or random.random() < 0.7  # noqa: S311
+                ):  # Force a place action
                     action = random.choice(pl_actions)  # noqa: S311
                 else:
-                    action = random.choice(list(valid_moves))  # noqa: S311
+                    action = random.choice(rs_actions)  # noqa: S311
 
-                cur_board.attempt_action(action, in_place=True)
+            # Track consecutive resets
+            if action.action_type == ActionTypes.RESET:
+                consecutive_resets += 1
+                max_consecutive_resets = max(max_consecutive_resets, consecutive_resets)
+            else:
+                consecutive_resets = 0
+
+            cur_board.attempt_action(action, in_place=True)
             steps += 1
 
-        # Calculate the reward function
-        return self._reward_func(cur_board)
+        return self._reward_func(cur_board, max_consecutive_resets)
 
-    def _reward_func(self, board: FlowFree) -> float:
-        """Calculate the reward for the given board state. Returns a number between 0 and 1."""
+    def _reward_func(self, board: FlowFree, total_resets: int) -> float:
+        """Calculate the reward for the given board state."""
         colors_in_board: frozenset[int] = board._colors
 
         if board.is_solved():
             return 1.0
 
-        # return 0.2 * (# tiles nonempty / # tiles) + 0.6 * (# colors solved / # colors)
         num_solved_colors = sum(1 for color in colors_in_board if board.is_color_solved(color))
-        num_nonempty_tiles = int(np.count_nonzero(board._board)) - (
-            2 * len(colors_in_board)
-        )  # Exclude terminal tiles
-        total_tiles = (board.rows * board.cols) - (
-            2 * len(colors_in_board)
-        )  # Exclude terminal tiles
-        return 0.15 * (num_nonempty_tiles / total_tiles) + 0.45 * (
-            num_solved_colors / len(colors_in_board) if colors_in_board else 0
+        num_path_tiles = int(np.sum(board._board > 0))
+        total_non_terminal_tiles = (board.rows * board.cols) - (2 * len(colors_in_board))
+
+        tile_completion = (
+            num_path_tiles / total_non_terminal_tiles if total_non_terminal_tiles > 0 else 0
         )
+        color_completion = num_solved_colors / len(colors_in_board) if colors_in_board else 0
+
+        # Stronger reset penalty
+        reset_penalty = min(0.2 * total_resets, 0.5)  # Cap penalty at 0.5
+
+        return max(0.2 * tile_completion + 0.6 * color_completion - reset_penalty, 0)
 
     def _get_state_data(self, board_state: EncodedBoard) -> StateData:
         """Get or create the state data for a given board state."""
