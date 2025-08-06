@@ -122,6 +122,15 @@ FLOATING_BODY = np.array(
     ]
 )
 
+COLOR_SKIPPING_INVALID_BOARD = np.array(
+    [
+        [terminal(1), EMPTY_CODE, EMPTY_CODE, terminal(1)],
+        [EMPTY_CODE, EMPTY_CODE, EMPTY_CODE, EMPTY_CODE],
+        [terminal(2), body(2), body(2), terminal(2)],
+        [terminal(4), EMPTY_CODE, EMPTY_CODE, terminal(4)],
+    ]
+)  # Skips color 3, which is invalid
+
 QUICK_GAME = np.array([[terminal(1), EMPTY_CODE, terminal(1)]])
 
 
@@ -149,6 +158,7 @@ def test_board_initialization(empty_5x5_game: FlowFree) -> None:
         (IMPROPER_HEADS_2, False),
         (COMPLETED_GAME_1, True),
         (COMPLETED_GAME_2, True),
+        (COLOR_SKIPPING_INVALID_BOARD, False),
     ],
 )
 def test_is_valid_board(board: np.ndarray, is_valid: bool) -> None:

@@ -217,18 +217,15 @@ class MCGS:
             if not valid_moves:
                 break  # This shouldn't really happen though since you can always reset a completed color
             else:
-                action: Action = None
-                pl_actions = {move for move in valid_moves if move.action_type == ActionTypes.PLACE}
-                rs_actions = {move for move in valid_moves if move.action_type == ActionTypes.RESET}
-                # 90% chance to place, 10% chance to reset
-                if len(pl_actions) > 0 and len(rs_actions) > 0:
-                    action = random.choices(  # noqa: S311
-                        population=[*pl_actions, *rs_actions],
-                        weights=[0.9] * len(pl_actions) + [0.1] * len(rs_actions),
-                        k=1,
-                    )[0]
-                else:  # Only one type of action available
+                pl_actions = [move for move in valid_moves if move.action_type == ActionTypes.PLACE]
+                rs_actions = [move for move in valid_moves if move.action_type == ActionTypes.RESET]
+
+                # Prefer PLACE actions (99%) over RESET actions (1%)
+                if pl_actions and rs_actions and random.random() > 0.01:  # noqa: S311
+                    action = random.choice(pl_actions)  # noqa: S311
+                else:
                     action = random.choice(list(valid_moves))  # noqa: S311
+
                 cur_board.attempt_action(action, in_place=True)
             steps += 1
 

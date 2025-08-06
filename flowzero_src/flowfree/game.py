@@ -400,7 +400,6 @@ class FlowFree:
         rows, cols = len(lines), len(lines[0])
         return FlowFree(rows, cols, parse_ascii_board(data))
 
-    # TODO: Update this so that two adjacent terminals are not allowed (?)
     @classmethod
     def is_valid_board(cls, arr: np.ndarray) -> bool:
         """Return True if arr is a valid Flow Free board."""
@@ -415,6 +414,17 @@ class FlowFree:
 
         n_rows, n_cols = arr.shape
 
+        # Ensure the colors are a subsequence from 1 to MAX_COLORS with no skips/gaps
+        colors = {
+            color_of(int(arr[r, c]))
+            for r in range(n_rows)
+            for c in range(n_cols)
+            if int(arr[r, c]) != 0
+        }
+        if not all(c in colors for c in range(1, len(colors) + 1)):
+            return False
+
+        # In bounds helper function
         def in_bounds(c: Coordinate) -> bool:
             """Return True if coordinate c is inside arr bounds."""
             return 0 <= c.row < n_rows and 0 <= c.col < n_cols

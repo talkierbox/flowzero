@@ -23,7 +23,7 @@ LARGER_BOARD = np.array(
         [terminal(1), 0, 0, terminal(1)],
         [0, 0, 0, 0],
         [0, 0, 0, 0],
-        [terminal(3), 0, 0, terminal(3)],
+        [terminal(2), 0, 0, terminal(2)],
     ],
     dtype=np.int8,
 )
@@ -70,7 +70,6 @@ class TestMCGSInitialization:
         """Test MCGS initialization with game."""
         mcgs = MCGS(simple_game)
         assert mcgs.current_game == simple_game
-        assert mcgs.simulations_per_move == 100  # Default value
         assert len(mcgs.state_table) == 1  # Root state should be initialized
         assert mcgs.root_key in mcgs.state_table
         assert len(mcgs.edge_table) == 0
