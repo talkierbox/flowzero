@@ -1,6 +1,4 @@
 """Monte-Carlo Graph Search (MCGS) implementation."""
-
-# No longer a naive tree search
 from __future__ import annotations
 
 import math
@@ -167,11 +165,20 @@ class MCGS:
             next_key: EncodedBoard = next_board.encode_board()
 
             if next_key in path_states:  # Avoid a cycle!
-                # Mark edge as a dead-end
+                # Mark edge as a dead-end with negative reward
                 selected_edge.visits += 1
-                selected_edge.value += 0.0
+                selected_edge.value += -1.0  # Strong negative reward to discourage cycles
                 path_edges.append((cur_key, selected_action))
-                break
+                # Backpropagate the negative reward immediately
+                for pk, act in path_edges:
+                    e = self.edge_table[(pk, act)]
+                    e.visits += 1
+                    e.value += -1.0
+                for state_key in set(path_states):
+                    s = self.state_table[state_key]
+                    s.visits += 1
+                    s.value += -1.0
+                return
 
             if (
                 selected_edge.child_key is None
@@ -225,6 +232,7 @@ class MCGS:
         steps = 0
         consecutive_resets = 0
         max_consecutive_resets = 0
+        seen_states: set[EncodedBoard] = {board.encode_board()}  # Track visited states
 
         while not cur_board.is_solved() and steps < max_steps:
             valid_moves: set[Action] = cur_board.get_all_valid_moves()
@@ -257,6 +265,13 @@ class MCGS:
 
             cur_board.attempt_action(action, in_place=True)
             steps += 1
+
+            # Check for cycle in rollout
+            cur_state = cur_board.encode_board()
+            if cur_state in seen_states:
+                # Detected a cycle during rollout - heavily penalize
+                return -0.5
+            seen_states.add(cur_state)
 
         return self._reward_func(cur_board, max_consecutive_resets)
 

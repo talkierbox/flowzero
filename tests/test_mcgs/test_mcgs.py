@@ -134,6 +134,7 @@ class TestMCGSFullGame:
         assert isinstance(final_game, FlowFree)
         assert isinstance(move_history, list)
         assert len(move_history) <= 20
+        assert solved is True
 
     def test_play_game_max_moves_limit(self, medium_game: FlowFree) -> None:
         """Test that play_game respects max_moves limit."""
